@@ -46,6 +46,43 @@ export function registerPmgIpc(): void {
     }
   )
 
+  ipcMain.handle(
+    'export:objDialog',
+    async (_event, rawName: unknown, rawObj: unknown, rawMtl: unknown): Promise<string | null> => {
+      if (typeof rawObj !== 'string' || typeof rawMtl !== 'string') {
+        throw new TypeError('export:objDialog expects obj and mtl text')
+      }
+      const defaultName = typeof rawName === 'string' && rawName.length > 0 ? rawName : 'model.obj'
+      const result = await dialog.showSaveDialog({
+        title: '匯出 OBJ',
+        defaultPath: defaultName,
+        filters: [{ name: 'Wavefront OBJ', extensions: ['obj'] }]
+      })
+      if (result.canceled || !result.filePath) return null
+      await writeFile(result.filePath, rawObj, 'utf8')
+      await writeFile(result.filePath.replace(/\.obj$/i, '.mtl'), rawMtl, 'utf8')
+      return result.filePath
+    }
+  )
+
+  ipcMain.handle(
+    'export:glbDialog',
+    async (_event, rawName: unknown, rawData: unknown): Promise<string | null> => {
+      if (!(rawData instanceof Uint8Array)) {
+        throw new TypeError('export:glbDialog expects file data as Uint8Array')
+      }
+      const defaultName = typeof rawName === 'string' && rawName.length > 0 ? rawName : 'model.glb'
+      const result = await dialog.showSaveDialog({
+        title: '匯出 glTF (GLB)',
+        defaultPath: defaultName,
+        filters: [{ name: 'glTF Binary', extensions: ['glb'] }]
+      })
+      if (result.canceled || !result.filePath) return null
+      await writeFile(result.filePath, rawData)
+      return result.filePath
+    }
+  )
+
   ipcMain.handle('pmg:save', async (_event, rawPath: unknown, rawData: unknown): Promise<void> => {
     const { path, data } = validateSaveArgs(rawPath, rawData)
     await writeFile(path, data)

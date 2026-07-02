@@ -2,6 +2,8 @@
  * Top toolbar: 開啟 / 儲存 / 另存新檔 via window.api, plus filename,
  * dirty indicator and error display (incl. PmgParseError offset).
  */
+import { exportGlb } from '../../core/export/gltf'
+import { exportObj } from '../../core/export/obj'
 import { PmgParseError, readPmg } from '../../core/pmg/reader'
 import { writePmg } from '../../core/pmg/writer'
 import { useEditor } from './state/editorContext'
@@ -58,6 +60,31 @@ export function Toolbar(): React.JSX.Element {
     }
   }
 
+  const exportBaseName = (): string =>
+    (state.filePath ? basenameOf(state.filePath) : state.file?.name.text || 'model').replace(
+      /\.pmg$/i,
+      ''
+    )
+
+  const handleExportObj = async (): Promise<void> => {
+    if (!state.file) return
+    try {
+      const { obj, mtl } = exportObj(state.file)
+      await window.api.exportObj(`${exportBaseName()}.obj`, obj, mtl)
+    } catch (error) {
+      dispatch({ type: 'errorRaised', message: `匯出失敗：${messageOf(error)}` })
+    }
+  }
+
+  const handleExportGlb = async (): Promise<void> => {
+    if (!state.file) return
+    try {
+      await window.api.exportGlb(`${exportBaseName()}.glb`, exportGlb(state.file))
+    } catch (error) {
+      dispatch({ type: 'errorRaised', message: `匯出失敗：${messageOf(error)}` })
+    }
+  }
+
   return (
     <header className="toolbar">
       <button type="button" onClick={() => void handleOpen()}>
@@ -68,6 +95,12 @@ export function Toolbar(): React.JSX.Element {
       </button>
       <button type="button" disabled={!state.file} onClick={() => void handleSaveAs()}>
         另存新檔
+      </button>
+      <button type="button" disabled={!state.file} onClick={() => void handleExportObj()}>
+        匯出 OBJ
+      </button>
+      <button type="button" disabled={!state.file} onClick={() => void handleExportGlb()}>
+        匯出 GLB
       </button>
       <span className="toolbar-file">
         {state.filePath ? basenameOf(state.filePath) : '未開啟檔案'}

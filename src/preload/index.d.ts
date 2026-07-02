@@ -24,9 +24,14 @@ export interface FxApi {
   saveFxAs(defaultName: string, data: Uint8Array): Promise<string | null>
 }
 
+export interface ExportApi {
+  exportObj(defaultName: string, obj: string, mtl: string): Promise<string | null>
+  exportGlb(defaultName: string, data: Uint8Array): Promise<string | null>
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: PmgApi & FxApi
+    api: PmgApi & FxApi & ExportApi
   }
 }

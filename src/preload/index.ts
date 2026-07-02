@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { FxApi, PmgApi } from './index.d'
+import type { ExportApi, FxApi, PmgApi } from './index.d'
 
 // Typed PMG + FX file API backed by src/main/ipc.ts and src/main/fxIpc.ts handlers.
-const api: PmgApi & FxApi = {
+const api: PmgApi & FxApi & ExportApi = {
   openPmg: () => ipcRenderer.invoke('pmg:openDialog'),
   openPmgPath: (path) => ipcRenderer.invoke('pmg:openPath', path),
   savePmg: (path, data) => ipcRenderer.invoke('pmg:save', path, data),
@@ -11,7 +11,10 @@ const api: PmgApi & FxApi = {
   openFx: () => ipcRenderer.invoke('fx:openDialog'),
   openFxPath: (path) => ipcRenderer.invoke('fx:openPath', path),
   saveFx: (path, data) => ipcRenderer.invoke('fx:save', path, data),
-  saveFxAs: (defaultName, data) => ipcRenderer.invoke('fx:saveDialog', defaultName, data)
+  saveFxAs: (defaultName, data) => ipcRenderer.invoke('fx:saveDialog', defaultName, data),
+  exportObj: (defaultName, obj, mtl) =>
+    ipcRenderer.invoke('export:objDialog', defaultName, obj, mtl),
+  exportGlb: (defaultName, data) => ipcRenderer.invoke('export:glbDialog', defaultName, data)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
