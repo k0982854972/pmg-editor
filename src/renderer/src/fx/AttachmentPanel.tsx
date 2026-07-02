@@ -2,9 +2,13 @@
  * Meshdesc binding sub-tab: open a weapon/tool meshdesc XML, edit its
  * EffectGroup/Effect rows (name, parent bone, effect_name, offset, rotation),
  * add/remove entries via the pure core helpers, and save back.
- * Owns its own local state; exposes window.__openMeshdescPath in dev.
+ * Also auto-loads the sibling same-named .pmg model and an effect-source XML
+ * (persisted path) to drive the live preview pane (MeshdescPreview) and the
+ * bone / effect-name datalists. Exposes window.__openMeshdescPath in dev.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { EffectDocument } from '../../../core/fx/effectXml'
+import { parseEffectXml } from '../../../core/fx/effectXml'
 import type { MeshdescDocument, MeshdescEffect } from '../../../core/fx/meshdesc'
 import {
   addEffect,
@@ -13,7 +17,12 @@ import {
   serializeMeshdesc,
   updateEffect
 } from '../../../core/fx/meshdesc'
-import { CommitInput } from './CommitInput'
+import { readPmg } from '../../../core/pmg/reader'
+import type { PmgFile } from '../../../core/pmg/types'
+import { BONE_DATALIST_ID, EFFECT_NAME_DATALIST_ID, EffectRow } from './MeshdescEffectRow'
+import type { ModelStatus } from './MeshdescPreview'
+import { MeshdescPreview } from './MeshdescPreview'
+import { buildBoneCandidates, emitterNamesOf, pmgBoneNamesOf } from './meshdescPreviewModel'
 
 interface MeshdescState {
   readonly doc: MeshdescDocument | null
@@ -22,7 +31,20 @@ interface MeshdescState {
   readonly error: string | null
 }
 
+interface SiblingPmgState {
+  readonly file: PmgFile | null
+  readonly status: ModelStatus
+}
+
+interface EffectSourceState {
+  readonly doc: EffectDocument
+  readonly path: string
+}
+
 const INITIAL_STATE: MeshdescState = { doc: null, path: null, isDirty: false, error: null }
+
+const EFFECT_SOURCE_STORAGE_KEY = 'fx.meshdescEffectSource'
+const EFFECT_SOURCE_HINT = '選擇包含發射器定義的特效 XML，供特效名稱下拉選單與預覽使用'
 
 const NEW_EFFECT: MeshdescEffect = {
   name: 'new_effect',
@@ -38,84 +60,80 @@ const NEW_EFFECT: MeshdescEffect = {
 
 const basenameOf = (path: string): string => path.split(/[\\/]/).pop() ?? path
 
+/** meshdesc XML path -> sibling same-named .pmg path. */
+const siblingPmgPathOf = (path: string): string => path.replace(/\.[^.\\/]*$/, '') + '.pmg'
+
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : '未知錯誤')
 
-interface EffectRowProps {
-  readonly effect: MeshdescEffect
-  readonly onPatch: (patch: Partial<MeshdescEffect>) => void
-  readonly onDelete: () => void
-  readonly onInvalidNumber: (field: string) => void
+const readStoredEffectSourcePath = (): string => {
+  try {
+    return localStorage.getItem(EFFECT_SOURCE_STORAGE_KEY) ?? ''
+  } catch {
+    return ''
+  }
 }
 
-function EffectRow({
-  effect,
-  onPatch,
-  onDelete,
-  onInvalidNumber
-}: EffectRowProps): React.JSX.Element {
-  const commitNumber = (field: string, apply: (value: number) => void) => (raw: string) => {
-    const value = Number(raw)
-    if (Number.isFinite(value)) apply(value)
-    else onInvalidNumber(field)
+const storeEffectSourcePath = (path: string): void => {
+  try {
+    localStorage.setItem(EFFECT_SOURCE_STORAGE_KEY, path)
+  } catch {
+    // Persistence is best-effort; the in-memory value still applies.
   }
-
-  return (
-    <li className="fx-meshdesc-effect">
-      <label className="field fx-meshdesc-field">
-        <span className="field-label">名稱</span>
-        <CommitInput value={effect.name} onCommit={(name) => onPatch({ name })} />
-      </label>
-      <label className="field fx-meshdesc-field">
-        <span className="field-label">骨骼 (parent)</span>
-        <CommitInput value={effect.parent} onCommit={(parent) => onPatch({ parent })} />
-      </label>
-      <label className="field fx-meshdesc-field">
-        <span className="field-label">特效名稱 (effect_name)</span>
-        <CommitInput value={effect.effectName} onCommit={(effectName) => onPatch({ effectName })} />
-      </label>
-      <div className="fx-meshdesc-vec">
-        <span className="field-label">位移 X / Y / Z</span>
-        <CommitInput
-          value={String(effect.offset.x)}
-          ariaLabel="位移 X"
-          onCommit={commitNumber('offset.x', (x) => onPatch({ offset: { ...effect.offset, x } }))}
-        />
-        <CommitInput
-          value={String(effect.offset.y)}
-          ariaLabel="位移 Y"
-          onCommit={commitNumber('offset.y', (y) => onPatch({ offset: { ...effect.offset, y } }))}
-        />
-        <CommitInput
-          value={String(effect.offset.z)}
-          ariaLabel="位移 Z"
-          onCommit={commitNumber('offset.z', (z) => onPatch({ offset: { ...effect.offset, z } }))}
-        />
-      </div>
-      <label className="field fx-meshdesc-field">
-        <span className="field-label">旋轉角度 (rot_angle)</span>
-        <CommitInput
-          value={String(effect.rotAngle)}
-          onCommit={commitNumber('rot_angle', (rotAngle) => onPatch({ rotAngle }))}
-        />
-      </label>
-      <button type="button" className="fx-meshdesc-delete" onClick={onDelete}>
-        刪除
-      </button>
-    </li>
-  )
 }
 
 export function AttachmentPanel(): React.JSX.Element {
   const [state, setState] = useState<MeshdescState>(INITIAL_STATE)
+  const [pmg, setPmg] = useState<SiblingPmgState | null>(null)
+  const [effectSource, setEffectSource] = useState<EffectSourceState | null>(null)
+  // Guards stale async PMG results when another meshdesc is opened quickly.
+  const pmgRequestRef = useRef(0)
   const doc = state.doc
 
-  const loadBytes = (path: string, data: Uint8Array): void => {
-    try {
-      setState({ doc: parseMeshdesc(data), path, isDirty: false, error: null })
-    } catch (error) {
-      setState((previous) => ({ ...previous, error: `開啟失敗：${messageOf(error)}` }))
+  const loadSiblingPmg = useCallback((meshdescPath: string): void => {
+    const requestId = pmgRequestRef.current + 1
+    pmgRequestRef.current = requestId
+    const pmgPath = siblingPmgPathOf(meshdescPath)
+    const missing: SiblingPmgState = {
+      file: null,
+      status: { isLoaded: false, text: `✗ 找不到同名 PMG（${basenameOf(pmgPath)}）` }
     }
-  }
+    setPmg({ file: null, status: { isLoaded: false, text: `載入中：${basenameOf(pmgPath)}` } })
+    window.api
+      .openPmgPath(pmgPath)
+      .then((result) => {
+        if (pmgRequestRef.current !== requestId) return
+        if (!result) {
+          setPmg(missing)
+          return
+        }
+        try {
+          setPmg({
+            file: readPmg(new Uint8Array(result.data)),
+            status: { isLoaded: true, text: `✓ ${basenameOf(result.path)}` }
+          })
+        } catch (error) {
+          setPmg({
+            file: null,
+            status: { isLoaded: false, text: `✗ PMG 解析失敗：${messageOf(error)}` }
+          })
+        }
+      })
+      .catch(() => {
+        if (pmgRequestRef.current === requestId) setPmg(missing)
+      })
+  }, [])
+
+  const loadBytes = useCallback(
+    (path: string, data: Uint8Array): void => {
+      try {
+        setState({ doc: parseMeshdesc(data), path, isDirty: false, error: null })
+        loadSiblingPmg(path)
+      } catch (error) {
+        setState((previous) => ({ ...previous, error: `開啟失敗：${messageOf(error)}` }))
+      }
+    },
+    [loadSiblingPmg]
+  )
 
   // Dev-only hook so automated smoke tests can load a meshdesc without the dialog.
   useEffect(() => {
@@ -129,6 +147,27 @@ export function AttachmentPanel(): React.JSX.Element {
     }
     return () => {
       delete devWindow.__openMeshdescPath
+    }
+  }, [loadBytes])
+
+  // Auto-reload the persisted effect-source file on mount.
+  useEffect(() => {
+    const stored = readStoredEffectSourcePath()
+    if (stored === '') return undefined
+    let isCancelled = false
+    window.api
+      .openFxPath(stored)
+      .then((result) => {
+        if (isCancelled || !result) return
+        try {
+          setEffectSource({ doc: parseEffectXml(new Uint8Array(result.data)), path: result.path })
+        } catch {
+          // A stale/corrupt stored path silently stays unloaded.
+        }
+      })
+      .catch(() => undefined)
+    return () => {
+      isCancelled = true
     }
   }, [])
 
@@ -146,6 +185,18 @@ export function AttachmentPanel(): React.JSX.Element {
       if (result) loadBytes(result.path, new Uint8Array(result.data))
     } catch (error) {
       raiseError(`開啟失敗：${messageOf(error)}`)
+    }
+  }
+
+  const handlePickEffectSource = async (): Promise<void> => {
+    try {
+      const result = await window.api.openFx()
+      if (!result) return
+      const parsed = parseEffectXml(new Uint8Array(result.data))
+      setEffectSource({ doc: parsed, path: result.path })
+      storeEffectSourcePath(result.path)
+    } catch (error) {
+      raiseError(`載入特效來源失敗：${messageOf(error)}`)
     }
   }
 
@@ -176,10 +227,23 @@ export function AttachmentPanel(): React.JSX.Element {
     }
   }
 
+  const boneOptions = useMemo(
+    () => buildBoneCandidates(pmg?.file ? pmgBoneNamesOf(pmg.file) : []),
+    [pmg]
+  )
+  const emitterNames = useMemo(
+    () => (effectSource ? emitterNamesOf(effectSource.doc) : []),
+    [effectSource]
+  )
+
   return (
     <div className="fx-meshdesc">
       <div className="fx-toolbar">
-        <button type="button" onClick={() => void handleOpen()}>
+        <button
+          type="button"
+          title="開啟武器/工具的 meshdesc XML"
+          onClick={() => void handleOpen()}
+        >
           開啟 meshdesc
         </button>
         <button type="button" disabled={!state.doc} onClick={() => void handleSave()}>
@@ -209,35 +273,72 @@ export function AttachmentPanel(): React.JSX.Element {
           </span>
         )}
       </div>
-      <div className="fx-meshdesc-body">
-        {!doc && <p className="panel-empty">開啟武器/工具的 meshdesc XML 以編輯特效綁定</p>}
-        {doc &&
-          doc.groups.map((group, groupIndex) => (
-            <section key={groupIndex} className="fx-meshdesc-group">
-              <div className="panel-title">
-                EffectGroup {groupIndex}（play_mode={group.playMode || '—'}，play={group.play}）
-              </div>
-              <ul>
-                {group.effects.map((effect, effectIndex) => (
-                  <EffectRow
-                    key={effectIndex}
-                    effect={effect}
-                    onPatch={(patch) => editDoc(updateEffect(doc, groupIndex, effectIndex, patch))}
-                    onDelete={() => editDoc(removeEffect(doc, groupIndex, effectIndex))}
-                    onInvalidNumber={(field) => raiseError(`「${field}」需要是數字`)}
-                  />
-                ))}
-              </ul>
-              <button
-                type="button"
-                className="fx-meshdesc-add"
-                onClick={() => editDoc(addEffect(doc, groupIndex, NEW_EFFECT))}
-              >
-                新增特效
-              </button>
-            </section>
-          ))}
+      <div className="fx-toolbar">
+        <button
+          type="button"
+          title={EFFECT_SOURCE_HINT}
+          onClick={() => void handlePickEffectSource()}
+        >
+          選擇特效檔
+        </button>
+        <span
+          className="toolbar-file"
+          title={effectSource ? effectSource.path : EFFECT_SOURCE_HINT}
+        >
+          特效來源：{effectSource ? `✓ ${basenameOf(effectSource.path)}` : '✗ 未選擇'}
+        </span>
       </div>
+      <div className="fx-meshdesc-layout">
+        <div className="fx-meshdesc-body">
+          {!doc && <p className="panel-empty">開啟武器/工具的 meshdesc XML 以編輯特效綁定</p>}
+          {doc &&
+            doc.groups.map((group, groupIndex) => (
+              <section key={groupIndex} className="fx-meshdesc-group">
+                <div className="panel-title">
+                  EffectGroup {groupIndex}（play_mode={group.playMode || '—'}，play={group.play}）
+                </div>
+                <ul>
+                  {group.effects.map((effect, effectIndex) => (
+                    <EffectRow
+                      key={effectIndex}
+                      effect={effect}
+                      onPatch={(patch) =>
+                        editDoc(updateEffect(doc, groupIndex, effectIndex, patch))
+                      }
+                      onDelete={() => editDoc(removeEffect(doc, groupIndex, effectIndex))}
+                      onInvalidNumber={(field) => raiseError(`「${field}」需要是數字`)}
+                    />
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  className="fx-meshdesc-add"
+                  onClick={() => editDoc(addEffect(doc, groupIndex, NEW_EFFECT))}
+                >
+                  新增特效
+                </button>
+              </section>
+            ))}
+        </div>
+        <div className="fx-meshdesc-preview-column">
+          <MeshdescPreview
+            doc={doc}
+            pmgFile={pmg?.file ?? null}
+            modelStatus={doc ? (pmg?.status ?? null) : null}
+            effectSource={effectSource?.doc ?? null}
+          />
+        </div>
+      </div>
+      <datalist id={BONE_DATALIST_ID}>
+        {boneOptions.map((name) => (
+          <option key={name.toLowerCase()} value={name} />
+        ))}
+      </datalist>
+      <datalist id={EFFECT_NAME_DATALIST_ID}>
+        {emitterNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
     </div>
   )
 }

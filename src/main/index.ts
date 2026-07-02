@@ -6,6 +6,7 @@ import { registerPmgIpc } from './ipc'
 import { registerFxIpc } from './fxIpc'
 import { registerTextureIpc } from './textureIpc'
 import { registerDdsIpc } from './ddsIpc'
+import { registerAniIpc } from './aniIpc'
 
 function createWindow(): void {
   // Create the browser window.
@@ -58,6 +59,7 @@ app.whenReady().then(() => {
   registerFxIpc()
   registerTextureIpc()
   registerDdsIpc()
+  registerAniIpc()
 
   createWindow()
 

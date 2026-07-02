@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { readPmg } from '../../core/pmg/reader'
+import { AniWorkspace } from './ani/AniWorkspace'
 import { DdsWorkspace } from './dds/DdsWorkspace'
 import { FxWorkspace } from './fx/FxWorkspace'
 import { Inspector } from './panels/Inspector'
@@ -67,7 +68,7 @@ function EditorShell(): React.JSX.Element {
   )
 }
 
-type AppMode = 'pmg' | 'fx' | 'dds'
+type AppMode = 'pmg' | 'fx' | 'dds' | 'ani'
 
 // Both workspaces stay mounted so switching modes never loses state.
 function App(): React.JSX.Element {
@@ -99,6 +100,13 @@ function App(): React.JSX.Element {
             >
               貼圖
             </button>
+            <button
+              type="button"
+              className={mode === 'ani' ? 'mode-tab active' : 'mode-tab'}
+              onClick={() => setMode('ani')}
+            >
+              動畫
+            </button>
           </nav>
           <div className={mode === 'pmg' ? 'mode-pane' : 'mode-pane mode-pane-hidden'}>
             <EditorShell />
@@ -108,6 +116,9 @@ function App(): React.JSX.Element {
           </div>
           <div className={mode === 'dds' ? 'mode-pane' : 'mode-pane mode-pane-hidden'}>
             <DdsWorkspace />
+          </div>
+          <div className={mode === 'ani' ? 'mode-pane' : 'mode-pane mode-pane-hidden'}>
+            <AniWorkspace />
           </div>
         </div>
       </FxProvider>

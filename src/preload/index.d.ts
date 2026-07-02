@@ -54,9 +54,19 @@ export interface DdsApi {
   exportPng(defaultName: string, data: Uint8Array): Promise<string | null>
 }
 
+export interface AniOpenResult {
+  readonly path: string
+  readonly data: Uint8Array
+}
+
+export interface AniApi {
+  openAni(): Promise<AniOpenResult | null>
+  openAniPath(path: string): Promise<AniOpenResult | null>
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi
+    api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi & AniApi
   }
 }

@@ -1,10 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { DdsApi, ExportApi, FxApi, FxTextureApi, PmgApi } from './index.d'
+import type { AniApi, DdsApi, ExportApi, FxApi, FxTextureApi, PmgApi } from './index.d'
 
-// Typed PMG + FX + DDS file API backed by src/main/ipc.ts, src/main/fxIpc.ts,
-// src/main/textureIpc.ts and src/main/ddsIpc.ts handlers.
-const api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi = {
+// Typed PMG + FX + DDS + ANI file API backed by src/main/ipc.ts,
+// src/main/fxIpc.ts, src/main/textureIpc.ts, src/main/ddsIpc.ts and
+// src/main/aniIpc.ts handlers.
+const api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi & AniApi = {
   openPmg: () => ipcRenderer.invoke('pmg:openDialog'),
   openPmgPath: (path) => ipcRenderer.invoke('pmg:openPath', path),
   savePmg: (path, data) => ipcRenderer.invoke('pmg:save', path, data),
@@ -24,7 +25,9 @@ const api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi = {
   saveDds: (path, data) => ipcRenderer.invoke('dds:save', path, data),
   saveDdsAs: (defaultName, data) => ipcRenderer.invoke('dds:saveDialog', defaultName, data),
   importPng: () => ipcRenderer.invoke('dds:importPngDialog'),
-  exportPng: (defaultName, data) => ipcRenderer.invoke('dds:exportPngDialog', defaultName, data)
+  exportPng: (defaultName, data) => ipcRenderer.invoke('dds:exportPngDialog', defaultName, data),
+  openAni: () => ipcRenderer.invoke('ani:openDialog'),
+  openAniPath: (path) => ipcRenderer.invoke('ani:openPath', path)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
