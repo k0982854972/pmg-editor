@@ -87,19 +87,39 @@ export function Toolbar(): React.JSX.Element {
 
   return (
     <header className="toolbar">
-      <button type="button" onClick={() => void handleOpen()}>
+      <button type="button" title="開啟 PMG 模型檔" onClick={() => void handleOpen()}>
         開啟
       </button>
-      <button type="button" disabled={!state.file} onClick={() => void handleSave()}>
+      <button
+        type="button"
+        title="儲存變更（未修改的部分保證與原檔位元相同）"
+        disabled={!state.file}
+        onClick={() => void handleSave()}
+      >
         儲存
       </button>
-      <button type="button" disabled={!state.file} onClick={() => void handleSaveAs()}>
+      <button
+        type="button"
+        title="另存為新的 PMG 檔案"
+        disabled={!state.file}
+        onClick={() => void handleSaveAs()}
+      >
         另存新檔
       </button>
-      <button type="button" disabled={!state.file} onClick={() => void handleExportObj()}>
+      <button
+        type="button"
+        title="匯出為 Wavefront OBJ（附 MTL 材質檔），可匯入 Blender 等工具"
+        disabled={!state.file}
+        onClick={() => void handleExportObj()}
+      >
         匯出 OBJ
       </button>
-      <button type="button" disabled={!state.file} onClick={() => void handleExportGlb()}>
+      <button
+        type="button"
+        title="匯出為 glTF Binary（GLB），通用 3D 交換格式"
+        disabled={!state.file}
+        onClick={() => void handleExportGlb()}
+      >
         匯出 GLB
       </button>
       <span className="toolbar-file">

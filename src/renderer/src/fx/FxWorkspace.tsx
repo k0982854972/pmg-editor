@@ -93,18 +93,33 @@ function EffectPane(): React.JSX.Element {
   return (
     <div className="fx-effect-pane">
       <div className="fx-toolbar">
-        <button type="button" onClick={() => void handleOpen()}>
+        <button
+          type="button"
+          title="開啟 effect_ver8 特效定義 XML（data/gfx/fx/effect/*.xml）"
+          onClick={() => void handleOpen()}
+        >
           開啟特效檔
         </button>
-        <button type="button" disabled={!state.doc} onClick={() => void handleSave()}>
+        <button
+          type="button"
+          title="儲存變更（保留原始編碼與未知屬性）"
+          disabled={!state.doc}
+          onClick={() => void handleSave()}
+        >
           儲存
         </button>
-        <button type="button" disabled={!state.doc} onClick={() => void handleSaveAs()}>
+        <button
+          type="button"
+          title="另存為新的特效 XML"
+          disabled={!state.doc}
+          onClick={() => void handleSaveAs()}
+        >
           另存新檔
         </button>
         <button
           type="button"
           className={isPreviewOpen ? 'fx-preview-toggle active' : 'fx-preview-toggle'}
+          title="顯示/隱藏即時粒子預覽面板"
           onClick={() => setIsPreviewOpen((value) => !value)}
         >
           預覽

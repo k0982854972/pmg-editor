@@ -82,6 +82,7 @@ function App(): React.JSX.Element {
             <button
               type="button"
               className={mode === 'pmg' ? 'mode-tab active' : 'mode-tab'}
+              title="PMG 模型檢視與編輯（3D 預覽、屬性、OBJ/GLB 匯出）"
               onClick={() => setMode('pmg')}
             >
               模型
@@ -89,6 +90,7 @@ function App(): React.JSX.Element {
             <button
               type="button"
               className={mode === 'fx' ? 'mode-tab active' : 'mode-tab'}
+              title="特效編輯（effect XML、漸層、粒子預覽、meshdesc 綁定）"
               onClick={() => setMode('fx')}
             >
               特效
@@ -96,6 +98,7 @@ function App(): React.JSX.Element {
             <button
               type="button"
               className={mode === 'dds' ? 'mode-tab active' : 'mode-tab'}
+              title="DDS 貼圖檢視與編輯（匯出 PNG、從 PNG 取代且格式不變）"
               onClick={() => setMode('dds')}
             >
               貼圖
@@ -103,6 +106,7 @@ function App(): React.JSX.Element {
             <button
               type="button"
               className={mode === 'ani' ? 'mode-tab active' : 'mode-tab'}
+              title="ANI 骨骼動畫檢視（軌道、關鍵幀、位置曲線）"
               onClick={() => setMode('ani')}
             >
               動畫
