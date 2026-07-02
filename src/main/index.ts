@@ -5,6 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import { registerPmgIpc } from './ipc'
 import { registerFxIpc } from './fxIpc'
 import { registerTextureIpc } from './textureIpc'
+import { registerDdsIpc } from './ddsIpc'
 
 function createWindow(): void {
   // Create the browser window.
@@ -56,6 +57,7 @@ app.whenReady().then(() => {
   registerPmgIpc()
   registerFxIpc()
   registerTextureIpc()
+  registerDdsIpc()
 
   createWindow()
 

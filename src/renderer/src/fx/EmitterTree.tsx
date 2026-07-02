@@ -1,11 +1,13 @@
 /**
  * Left-hand emitter tree: emitters from doc.emitters, expandable to their
- * child element chain (tag name + classname attribute). Selection reports
- * both the emitter index and the raw NodePath into the tree.
+ * child element chain. Top-level rows are labelled by the emitter's `name`
+ * attribute when present (tag shown as secondary text and tooltip); child
+ * rows show the tag with the `name` attribute (or classname) as secondary
+ * text. Selection reports both the emitter index and the raw NodePath.
  */
 import { useState } from 'react'
 import type { EffectDocument, XmlNode } from '../../../core/fx/effectXml'
-import { nodeAttributes, nodeTag } from '../../../core/fx/effectXml'
+import { emitterDisplayName, nodeAttributes, nodeTag } from '../../../core/fx/effectXml'
 import type { NodePath } from '../state/fxEdit'
 import { childNodeRefs, getNodeAtPath, rootNodePath } from '../state/fxEdit'
 
@@ -17,10 +19,38 @@ interface EmitterTreeProps {
 
 const pathKey = (path: NodePath): string => path.join('/')
 
+interface RowLabel {
+  readonly primary: string
+  readonly secondary: string
+  readonly tooltip: string
+}
+
+/**
+ * Emitter rows prefer the distinct `name` attribute (tag as secondary +
+ * tooltip); child rows keep the tag with name attribute or classname as
+ * secondary text.
+ */
+const rowLabelOf = (node: XmlNode, isEmitterRow: boolean): RowLabel => {
+  const tag = nodeTag(node)
+  const attrs = nodeAttributes(node)
+  const name = (attrs.name ?? '').trim()
+  const classname = attrs.classname ?? ''
+  if (isEmitterRow) {
+    const primary = emitterDisplayName(node)
+    return {
+      primary,
+      secondary: primary !== tag ? tag : classname,
+      tooltip: tag
+    }
+  }
+  return { primary: tag, secondary: name !== '' ? name : classname, tooltip: tag }
+}
+
 interface TreeNodeProps {
   readonly node: XmlNode
   readonly path: NodePath
   readonly emitterIndex: number
+  readonly isEmitterRow: boolean
   readonly selectedKey: string | null
   readonly onSelect: (emitterIndex: number, path: NodePath) => void
 }
@@ -29,12 +59,13 @@ function TreeNode({
   node,
   path,
   emitterIndex,
+  isEmitterRow,
   selectedKey,
   onSelect
 }: TreeNodeProps): React.JSX.Element {
   const [isExpanded, setIsExpanded] = useState(false)
   const children = childNodeRefs(node, path)
-  const classname = nodeAttributes(node).classname
+  const label = rowLabelOf(node, isEmitterRow)
   const isSelected = selectedKey === pathKey(path)
 
   return (
@@ -51,10 +82,11 @@ function TreeNode({
         <button
           type="button"
           className="fx-tree-label"
+          title={label.tooltip}
           onClick={() => onSelect(emitterIndex, path)}
         >
-          <span className="fx-tree-tag">{nodeTag(node)}</span>
-          {classname && <span className="fx-tree-classname">{classname}</span>}
+          <span className="fx-tree-tag">{label.primary}</span>
+          {label.secondary && <span className="fx-tree-classname">{label.secondary}</span>}
         </button>
       </div>
       {isExpanded && children.length > 0 && (
@@ -65,6 +97,7 @@ function TreeNode({
               node={child.node}
               path={child.path}
               emitterIndex={emitterIndex}
+              isEmitterRow={false}
               selectedKey={selectedKey}
               onSelect={onSelect}
             />
@@ -100,6 +133,7 @@ export function EmitterTree({ doc, selectedPath, onSelect }: EmitterTreeProps): 
             node={ref.node}
             path={ref.path}
             emitterIndex={emitterIndex}
+            isEmitterRow
             selectedKey={selectedKey}
             onSelect={onSelect}
           />

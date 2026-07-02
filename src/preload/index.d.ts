@@ -36,11 +36,27 @@ export interface FxTextureResult {
 
 export interface FxTextureApi {
   readFxTexture(dataRoot: string, textureName: string): Promise<FxTextureResult | null>
+  /** Directory picker for the FX texture data root; null when cancelled. */
+  pickFxDataRoot(): Promise<string | null>
+}
+
+export interface DdsOpenResult {
+  readonly path: string
+  readonly data: Uint8Array
+}
+
+export interface DdsApi {
+  openDds(): Promise<DdsOpenResult | null>
+  openDdsPath(path: string): Promise<DdsOpenResult | null>
+  saveDds(path: string, data: Uint8Array): Promise<void>
+  saveDdsAs(defaultName: string, data: Uint8Array): Promise<string | null>
+  importPng(): Promise<DdsOpenResult | null>
+  exportPng(defaultName: string, data: Uint8Array): Promise<string | null>
 }
 
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: PmgApi & FxApi & ExportApi & FxTextureApi
+    api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi
   }
 }

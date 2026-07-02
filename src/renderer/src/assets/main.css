@@ -655,3 +655,132 @@ input:focus {
   color: #8ab4ff;
   border-color: #4a7fd6;
 }
+
+/* Viewport overlay: lay out the wireframe and fit-view buttons in a row. */
+.viewport-overlay {
+  display: flex;
+  gap: 6px;
+}
+
+/* FX preview per-texture load status list */
+
+.fx-preview-textures {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 10px;
+  background: #101319;
+  border-bottom: 1px solid #2a2e37;
+  font-size: 12px;
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+.fx-preview-texture {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  color: #aab2c0;
+}
+
+.fx-preview-texture-icon {
+  flex: none;
+  width: 14px;
+  text-align: center;
+}
+
+.fx-preview-texture-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #d7dce4;
+}
+
+.fx-preview-texture-state {
+  flex: none;
+  color: #8b93a2;
+}
+
+.fx-preview-texture.is-loaded .fx-preview-texture-icon {
+  color: #6fce7f;
+}
+
+.fx-preview-texture.is-missing .fx-preview-texture-icon,
+.fx-preview-texture.is-missing .fx-preview-texture-state {
+  color: #e08a8a;
+}
+
+/* DDS texture workspace (貼圖) */
+
+.dds-workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.dds-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.dds-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  background: #0c0e12;
+}
+
+.dds-canvas {
+  flex: none;
+  margin: auto;
+  image-rendering: pixelated;
+  background: repeating-conic-gradient(#2a2e37 0% 25%, #14171c 0% 50%) 0 0 / 16px 16px;
+}
+
+.dds-sidebar {
+  width: 300px;
+  flex: none;
+  overflow-y: auto;
+  background: #14171c;
+  border-left: 1px solid #2a2e37;
+  padding: 12px;
+}
+
+.dds-note {
+  margin-top: 12px;
+  padding: 8px 10px;
+  background: #1c2430;
+  border: 1px solid #2a4a7f;
+  border-radius: 6px;
+  color: #9fb8e6;
+  font-size: 12px;
+}
+
+.dds-zoom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8b93a2;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.dds-zoom input {
+  width: 120px;
+  padding: 0;
+}
+
+.dds-empty {
+  margin: auto;
+  color: #6b7280;
+}
+
+.dds-decode-error {
+  margin: auto;
+  max-width: 70%;
+  text-align: center;
+  color: #ff7b72;
+}

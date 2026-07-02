@@ -8,6 +8,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { PmgFile } from '../../../core/pmg/types'
 import type { MeshSelection } from '../state/editorReducer'
 import { buildFileScene, disposeScene, meshKeyOf, type BuiltScene } from './buildMeshes'
+import { computeCameraFit } from './fitCamera'
 
 interface ViewportProps {
   file: PmgFile | null
@@ -21,23 +22,52 @@ interface SceneRefs {
   readonly scene: THREE.Scene
   readonly camera: THREE.PerspectiveCamera
   readonly controls: OrbitControls
+  // Replaced on every fit so the grid tracks the model's size and floor.
+  grid: THREE.GridHelper
 }
 
 const SELECTED_EMISSIVE = 0x2a6bd4
-const CAMERA_FIT_DISTANCE_FACTOR = 2.2
+const GRID_DIVISIONS = 40
+const GRID_CENTER_COLOR = 0x3a4150
+const GRID_LINE_COLOR = 0x262b34
+const DEFAULT_GRID_SIZE = 20
 
-function fitCameraToObject(refs: SceneRefs, root: THREE.Object3D): void {
-  const box = new THREE.Box3().setFromObject(root)
-  if (box.isEmpty()) return
-  const sphere = box.getBoundingSphere(new THREE.Sphere())
-  const distance = Math.max(sphere.radius, 0.5) * CAMERA_FIT_DISTANCE_FACTOR
-  const direction = new THREE.Vector3(1, 0.6, 1).normalize()
-  refs.camera.position.copy(sphere.center).addScaledVector(direction, distance)
-  refs.camera.near = Math.max(distance / 1000, 0.001)
-  refs.camera.far = distance * 100
+function createGrid(size: number): THREE.GridHelper {
+  return new THREE.GridHelper(size, GRID_DIVISIONS, GRID_CENTER_COLOR, GRID_LINE_COLOR)
+}
+
+function replaceGrid(refs: SceneRefs, size: number, position: THREE.Vector3): void {
+  refs.scene.remove(refs.grid)
+  refs.grid.dispose()
+  const grid = createGrid(size)
+  grid.position.copy(position)
+  refs.scene.add(grid)
+  refs.grid = grid
+}
+
+/**
+ * Frames the visible meshes: world-space bounding box (matrix2 transforms
+ * applied) drives camera position, orbit target, clip planes, zoom limits and
+ * grid placement. No-op when nothing is visible.
+ */
+function fitCameraToScene(refs: SceneRefs, built: BuiltScene): void {
+  built.root.updateWorldMatrix(true, true)
+  const box = new THREE.Box3()
+  built.byKey.forEach((object) => {
+    if (object.visible) box.expandByObject(object)
+  })
+  const viewDirection = refs.camera.position.clone().sub(refs.controls.target)
+  const fit = computeCameraFit(box, viewDirection)
+  if (!fit) return
+  refs.camera.position.set(fit.position.x, fit.position.y, fit.position.z)
+  refs.camera.near = fit.near
+  refs.camera.far = fit.far
   refs.camera.updateProjectionMatrix()
-  refs.controls.target.copy(sphere.center)
+  refs.controls.target.set(fit.target.x, fit.target.y, fit.target.z)
+  refs.controls.minDistance = fit.minDistance
+  refs.controls.maxDistance = fit.maxDistance
   refs.controls.update()
+  replaceGrid(refs, fit.gridSize, new THREE.Vector3(fit.target.x, fit.gridY, fit.target.z))
 }
 
 export function Viewport({
@@ -62,7 +92,8 @@ export function Viewport({
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x16181d)
-    scene.add(new THREE.GridHelper(20, 20, 0x3a4150, 0x262b34))
+    const grid = createGrid(DEFAULT_GRID_SIZE)
+    scene.add(grid)
     scene.add(new THREE.HemisphereLight(0xdde4ff, 0x2c3038, 1.1))
     const sun = new THREE.DirectionalLight(0xffffff, 1.6)
     sun.position.set(5, 10, 7)
@@ -72,8 +103,10 @@ export function Viewport({
     camera.position.set(4, 3, 6)
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
+    controls.enablePan = true
+    controls.screenSpacePanning = true
 
-    const refs: SceneRefs = { renderer, scene, camera, controls }
+    const refs: SceneRefs = { renderer, scene, camera, controls, grid }
     refsRef.current = refs
     fittedPathRef.current = null
 
@@ -98,6 +131,7 @@ export function Viewport({
       observer.disconnect()
       renderer.setAnimationLoop(null)
       controls.dispose()
+      refs.grid.dispose()
       if (builtRef.current) {
         scene.remove(builtRef.current.root)
         disposeScene(builtRef.current)
@@ -126,7 +160,7 @@ export function Viewport({
     refs.scene.add(built.root)
     // Refit only on a newly opened file, not on every field edit.
     if (fittedPathRef.current !== filePath) {
-      fitCameraToObject(refs, built.root)
+      fitCameraToScene(refs, built)
       fittedPathRef.current = filePath
     }
   }, [file, filePath])
@@ -151,9 +185,22 @@ export function Viewport({
         <button
           type="button"
           className={isWireframe ? 'toggle active' : 'toggle'}
+          title="切換線框顯示模式"
           onClick={() => setIsWireframe((value) => !value)}
         >
           線框
+        </button>
+        <button
+          type="button"
+          className="toggle"
+          title="將鏡頭對準模型（滑鼠左鍵旋轉、右鍵平移、滾輪縮放）"
+          onClick={() => {
+            const refs = refsRef.current
+            const built = builtRef.current
+            if (refs && built) fitCameraToScene(refs, built)
+          }}
+        >
+          適應視圖
         </button>
       </div>
       {!file && <div className="viewport-empty">尚未載入模型</div>}

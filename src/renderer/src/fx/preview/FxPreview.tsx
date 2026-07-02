@@ -1,13 +1,15 @@
 /**
  * Real-time FX particle preview panel: controls row (play/pause, restart,
- * loop, emitter selector, data-root input) over a three.js canvas driven
- * by the pure simulation in particleModel.ts. Recompiles on document or
- * emitter changes; DDS atlas textures are resolved through
- * window.api.readFxTexture and fall back silently to the default sprite.
- * Exposes window.__fxPreviewStats() in dev builds for smoke tests.
+ * loop, emitter selector, data-root input + folder picker) over a three.js
+ * canvas driven by the pure simulation in particleModel.ts. Recompiles on
+ * document or emitter changes; DDS atlas textures are resolved through
+ * window.api.readFxTexture with a per-texture load status list, falling
+ * back silently to the default sprite. Exposes window.__fxPreviewStats()
+ * in dev builds for smoke tests.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { EffectDocument } from '../../../../core/fx/effectXml'
+import { emitterDisplayName } from '../../../../core/fx/effectXml'
 import { CommitInput } from '../CommitInput'
 import type { CompiledEmitter, ParticleState } from './particleModel'
 import { compileEmitter, createInitialState, createSeededRng, stepParticles } from './particleModel'
@@ -25,7 +27,22 @@ interface SimRef {
   rng: () => number
 }
 
+type TextureLoadState = 'loading' | 'loaded' | 'missing'
+
+interface TextureStatus {
+  readonly state: TextureLoadState
+  /** Tooltip detail: resolved path when loaded, reason when missing. */
+  readonly detail: string
+}
+
+const TEXTURE_STATUS_PRESENTATION: Record<TextureLoadState, { icon: string; label: string }> = {
+  loading: { icon: '⏳', label: '載入中' },
+  loaded: { icon: '✓', label: '已載入' },
+  missing: { icon: '✗', label: '找不到（使用預設圓點）' }
+}
+
 const DATA_ROOT_STORAGE_KEY = 'fx.dataRoot'
+const DATA_ROOT_HINT = '指向解包的 data 或 material 資料夾，用於載入特效貼圖'
 const RNG_SEED = 1234
 
 const readStoredDataRoot = (): string => {
@@ -39,6 +56,15 @@ const readStoredDataRoot = (): string => {
 const totalParticles = (state: ParticleState): number =>
   state.effectTypes.reduce((sum, effectType) => sum + effectType.particles.length, 0)
 
+/** Distinct atlas texture names referenced by the compiled emitter. */
+const uniqueTextureNames = (compiled: CompiledEmitter | null): string[] => {
+  if (!compiled) return []
+  const names = compiled.effectTypes
+    .map((effectType) => effectType.atlas?.texture ?? '')
+    .filter((name) => name !== '')
+  return [...new Set(names)]
+}
+
 export function FxPreview({ doc, selectedEmitter }: FxPreviewProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<PreviewSceneHandle | null>(null)
@@ -50,6 +76,7 @@ export function FxPreview({ doc, selectedEmitter }: FxPreviewProps): React.JSX.E
   const [isLooping, setIsLooping] = useState(true)
   const [emitterIndex, setEmitterIndex] = useState(0)
   const [dataRoot, setDataRoot] = useState(readStoredDataRoot)
+  const [textureStatuses, setTextureStatuses] = useState<Record<string, TextureStatus>>({})
 
   // Follow tree selection changes (adjust-state-in-render pattern).
   const [lastSelected, setLastSelected] = useState(selectedEmitter)
@@ -64,6 +91,19 @@ export function FxPreview({ doc, selectedEmitter }: FxPreviewProps): React.JSX.E
     () => (doc ? compileEmitter(doc, effectiveIndex) : null),
     [doc, effectiveIndex]
   )
+  const textureNames = useMemo(() => uniqueTextureNames(compiled), [compiled])
+
+  // Drop stale async texture statuses when the emitter or data root changes
+  // (adjust-state-in-render pattern); defaults below cover the reset window.
+  const [statusSource, setStatusSource] = useState({ compiled, dataRoot })
+  if (statusSource.compiled !== compiled || statusSource.dataRoot !== dataRoot) {
+    setStatusSource({ compiled, dataRoot })
+    setTextureStatuses({})
+  }
+  const defaultTextureStatus: TextureStatus =
+    dataRoot.trim() === ''
+      ? { state: 'missing', detail: '尚未設定資料根目錄' }
+      : { state: 'loading', detail: '' }
 
   useEffect(() => {
     playingRef.current = isPlaying
@@ -108,28 +148,50 @@ export function FxPreview({ doc, selectedEmitter }: FxPreviewProps): React.JSX.E
     sceneRef.current?.syncEffectTypes(compiled?.effectTypes.length ?? 0)
   }, [compiled])
 
-  // Resolve DDS atlas textures; any failure keeps the default sprite.
+  // Resolve DDS atlas textures and track a visible status per texture name;
+  // any failure keeps the default sprite.
   useEffect(() => {
     const root = dataRoot.trim()
-    if (!compiled || root === '') return undefined
+    if (!compiled || root === '' || textureNames.length === 0) return undefined
     let isCancelled = false
-    compiled.effectTypes.forEach((effectType, index) => {
-      if (!effectType.atlas) return
+    const setStatus = (name: string, status: TextureStatus): void => {
+      if (isCancelled) return
+      setTextureStatuses((previous) => ({ ...previous, [name]: status }))
+    }
+    textureNames.forEach((name) => {
       window.api
-        .readFxTexture(root, effectType.atlas.texture)
+        .readFxTexture(root, name)
         .then((result) => {
-          if (isCancelled || !result) return
-          const texture = parseDdsTexture(new Uint8Array(result.data))
-          if (!texture) return
-          if (isCancelled) texture.dispose()
-          else sceneRef.current?.setTexture(index, texture)
+          if (isCancelled) return
+          if (!result) {
+            setStatus(name, { state: 'missing', detail: '在資料根目錄下找不到對應的 .dds 檔' })
+            return
+          }
+          // Decode one texture per EffectType slot: setTexture() disposes
+          // per slot, so a shared instance must not be reused across slots.
+          let isApplied = false
+          compiled.effectTypes.forEach((effectType, index) => {
+            if (effectType.atlas?.texture !== name) return
+            const texture = parseDdsTexture(new Uint8Array(result.data))
+            if (!texture) return
+            sceneRef.current?.setTexture(index, texture)
+            isApplied = true
+          })
+          setStatus(
+            name,
+            isApplied
+              ? { state: 'loaded', detail: result.path }
+              : { state: 'missing', detail: `DDS 解析失敗：${result.path}` }
+          )
         })
-        .catch(() => undefined)
+        .catch(() => {
+          setStatus(name, { state: 'missing', detail: '讀取貼圖時發生錯誤' })
+        })
     })
     return () => {
       isCancelled = true
     }
-  }, [compiled, dataRoot])
+  }, [compiled, dataRoot, textureNames])
 
   // Dev-only stats hook for automated smoke tests.
   useEffect(() => {
@@ -170,16 +232,29 @@ export function FxPreview({ doc, selectedEmitter }: FxPreviewProps): React.JSX.E
     }
   }
 
+  const handlePickDataRoot = (): void => {
+    window.api
+      .pickFxDataRoot()
+      .then((path) => {
+        if (path) handleDataRootCommit(path)
+      })
+      .catch(() => undefined)
+  }
+
   return (
     <div className="fx-preview-panel">
       <div className="fx-preview-controls">
-        <button type="button" onClick={() => setIsPlaying((value) => !value)}>
+        <button
+          type="button"
+          title="播放或暫停粒子模擬"
+          onClick={() => setIsPlaying((value) => !value)}
+        >
           {isPlaying ? '暫停' : '播放'}
         </button>
-        <button type="button" disabled={!compiled} onClick={handleRestart}>
+        <button type="button" title="從頭重新播放" disabled={!compiled} onClick={handleRestart}>
           重播
         </button>
-        <label className="fx-preview-loop">
+        <label className="fx-preview-loop" title="播放結束後自動重播">
           <input
             type="checkbox"
             checked={isLooping}
@@ -190,19 +265,22 @@ export function FxPreview({ doc, selectedEmitter }: FxPreviewProps): React.JSX.E
         <select
           className="fx-preview-emitter"
           aria-label="預覽發射器"
+          title="選擇要預覽的發射器"
           value={effectiveIndex}
           disabled={emitterCount === 0}
           onChange={(event) => setEmitterIndex(Number(event.target.value))}
         >
           {doc?.emitters.map((emitter, index) => (
-            <option key={index} value={index}>
-              {emitter.name}
+            <option key={index} value={index} title={emitter.name}>
+              {emitterDisplayName(emitter.node)}
             </option>
           ))}
         </select>
       </div>
       <div className="fx-preview-controls">
-        <span className="fx-preview-label">資料根目錄</span>
+        <span className="fx-preview-label" title={DATA_ROOT_HINT}>
+          資料根目錄
+        </span>
         <CommitInput
           className="fx-preview-dataroot"
           ariaLabel="資料根目錄"
@@ -210,7 +288,29 @@ export function FxPreview({ doc, selectedEmitter }: FxPreviewProps): React.JSX.E
           value={dataRoot}
           onCommit={handleDataRootCommit}
         />
+        <button type="button" title={DATA_ROOT_HINT} onClick={handlePickDataRoot}>
+          選擇資料夾
+        </button>
       </div>
+      {textureNames.length > 0 && (
+        <div className="fx-preview-textures" title="目前發射器引用的貼圖與載入狀態">
+          {textureNames.map((name) => {
+            const status = textureStatuses[name] ?? defaultTextureStatus
+            const presentation = TEXTURE_STATUS_PRESENTATION[status.state]
+            return (
+              <div
+                key={name}
+                className={`fx-preview-texture is-${status.state}`}
+                title={status.detail !== '' ? status.detail : presentation.label}
+              >
+                <span className="fx-preview-texture-icon">{presentation.icon}</span>
+                <span className="fx-preview-texture-name">{name}</span>
+                <span className="fx-preview-texture-state">{presentation.label}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
       <div className="fx-preview-canvas" ref={containerRef} />
       {!doc && <div className="fx-preview-empty">尚未載入特效</div>}
     </div>

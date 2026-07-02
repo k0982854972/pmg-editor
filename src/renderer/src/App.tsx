@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { readPmg } from '../../core/pmg/reader'
+import { DdsWorkspace } from './dds/DdsWorkspace'
 import { FxWorkspace } from './fx/FxWorkspace'
 import { Inspector } from './panels/Inspector'
 import { SceneTree } from './panels/SceneTree'
@@ -66,7 +67,7 @@ function EditorShell(): React.JSX.Element {
   )
 }
 
-type AppMode = 'pmg' | 'fx'
+type AppMode = 'pmg' | 'fx' | 'dds'
 
 // Both workspaces stay mounted so switching modes never loses state.
 function App(): React.JSX.Element {
@@ -91,12 +92,22 @@ function App(): React.JSX.Element {
             >
               特效
             </button>
+            <button
+              type="button"
+              className={mode === 'dds' ? 'mode-tab active' : 'mode-tab'}
+              onClick={() => setMode('dds')}
+            >
+              貼圖
+            </button>
           </nav>
           <div className={mode === 'pmg' ? 'mode-pane' : 'mode-pane mode-pane-hidden'}>
             <EditorShell />
           </div>
           <div className={mode === 'fx' ? 'mode-pane' : 'mode-pane mode-pane-hidden'}>
             <FxWorkspace />
+          </div>
+          <div className={mode === 'dds' ? 'mode-pane' : 'mode-pane mode-pane-hidden'}>
+            <DdsWorkspace />
           </div>
         </div>
       </FxProvider>

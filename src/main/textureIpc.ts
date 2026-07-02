@@ -1,15 +1,17 @@
 /**
- * FX texture lookup IPC for the particle preview. Resolves a texture name
- * to a .dds file under the user-provided data root, trying
- * `<dataRoot>/material/fx/<name>.dds`, then `<dataRoot>/material/<name>.dds`,
- * then one level of `<dataRoot>/material/<subdir>/<name>.dds` — no deeper
- * scan. Consumed by src/preload/index.ts (window.api.readFxTexture) and
- * registered from src/main/index.ts via registerTextureIpc().
+ * FX texture IPC for the particle preview. `fx:readTexture` resolves a
+ * texture name to a .dds file under the user-provided data root, searching
+ * the tolerant directory order from textureSearch.ts (material/fx ->
+ * material -> fx -> root -> one-level subdirs of material and of the root)
+ * with case-insensitive filename matching. `fx:pickDataRoot` opens a
+ * directory picker for the data root. Consumed by src/preload/index.ts
+ * (window.api.readFxTexture / pickFxDataRoot) and registered from
+ * src/main/index.ts via registerTextureIpc().
  */
-import { ipcMain } from 'electron'
-import type { Dirent } from 'fs'
+import { dialog, ipcMain } from 'electron'
 import { readdir, readFile, stat } from 'fs/promises'
 import { join } from 'path'
+import { matchFileNameCaseInsensitive, orderedTextureDirs } from './textureSearch'
 
 export interface FxTextureResult {
   readonly path: string
@@ -32,22 +34,42 @@ async function readIfFile(path: string): Promise<FxTextureResult | null> {
   }
 }
 
-async function findTexture(dataRoot: string, fileName: string): Promise<FxTextureResult | null> {
-  const materialDir = join(dataRoot, 'material')
-  const direct =
-    (await readIfFile(join(materialDir, 'fx', fileName))) ??
-    (await readIfFile(join(materialDir, fileName)))
-  if (direct) return direct
-
-  let entries: Dirent[]
+/** One-level directory names under `dir` ([] when unreadable). */
+async function listSubdirNames(dir: string): Promise<string[]> {
   try {
-    entries = await readdir(materialDir, { withFileTypes: true })
+    const entries = await readdir(dir, { withFileTypes: true })
+    return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
   } catch {
-    return null
+    return []
   }
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name === 'fx') continue
-    const found = await readIfFile(join(materialDir, entry.name, fileName))
+}
+
+/** File names directly inside `dir` ([] when unreadable). */
+async function listFileNames(dir: string): Promise<string[]> {
+  try {
+    const entries = await readdir(dir, { withFileTypes: true })
+    return entries.filter((entry) => entry.isFile()).map((entry) => entry.name)
+  } catch {
+    return []
+  }
+}
+
+async function findTexture(dataRoot: string, fileName: string): Promise<FxTextureResult | null> {
+  const materialSubdirs = await listSubdirNames(join(dataRoot, 'material'))
+  const rootSubdirs = await listSubdirNames(dataRoot)
+  const materialFxSubdirs = await listSubdirNames(join(dataRoot, 'material', 'fx'))
+  const rootFxSubdirs = await listSubdirNames(join(dataRoot, 'fx'))
+  const dirs = orderedTextureDirs(
+    dataRoot,
+    materialSubdirs,
+    rootSubdirs,
+    materialFxSubdirs,
+    rootFxSubdirs
+  )
+  for (const dir of dirs) {
+    const matched = matchFileNameCaseInsensitive(await listFileNames(dir), fileName)
+    if (!matched) continue
+    const found = await readIfFile(join(dir, matched))
     if (found) return found
   }
   return null
@@ -66,4 +88,13 @@ export function registerTextureIpc(): void {
       return findTexture(rawRoot.trim(), `${rawName}.dds`)
     }
   )
+
+  ipcMain.handle('fx:pickDataRoot', async (): Promise<string | null> => {
+    const result = await dialog.showOpenDialog({
+      title: '選擇資料根目錄',
+      properties: ['openDirectory']
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
 }

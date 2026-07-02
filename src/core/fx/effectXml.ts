@@ -70,6 +70,17 @@ export function nodeText(node: XmlNode): string {
     .join('')
 }
 
+/**
+ * Human-facing label for an emitter/effect node: the `name` attribute when
+ * present and non-blank (distinct effect ids like `dark_wind01`), else the
+ * element tag. Tags repeat across emitters in real corpus files, so the
+ * name attribute is what actually identifies an effect.
+ */
+export function emitterDisplayName(node: XmlNode): string {
+  const name = (nodeAttributes(node).name ?? '').trim()
+  return name !== '' ? name : nodeTag(node)
+}
+
 const isDeclarationOrText = (node: XmlNode): boolean => {
   const tag = nodeTag(node)
   return tag === '' || tag.startsWith('?')
