@@ -17,9 +17,7 @@ export function parseColorKeyframes(text: string): ColorKeyframe[] {
   const tokens = text.trim().split(/\s+/).filter(Boolean)
   if (tokens.length === 0) return []
   if (tokens.length % 2 !== 0) {
-    throw new Error(
-      `ColorOverLife: odd token count ${tokens.length}; expected time/color pairs`
-    )
+    throw new Error(`ColorOverLife: odd token count ${tokens.length}; expected time/color pairs`)
   }
 
   const frames: ColorKeyframe[] = []

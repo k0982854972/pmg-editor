@@ -101,7 +101,13 @@ export function writePmg(file: PmgFile): Uint8Array {
   const blocksByGroup = file.groups.map((g) => g.meshes.map(writeMeshBlock))
 
   const structuralSize =
-    4 + 2 + 4 + 32 + 96 + 4 + file.groups.reduce((sum, g) => sum + 68 + g.meshes.length * MESH_HEADER_SIZE, 0)
+    4 +
+    2 +
+    4 +
+    32 +
+    96 +
+    4 +
+    file.groups.reduce((sum, g) => sum + 68 + g.meshes.length * MESH_HEADER_SIZE, 0)
   const headerSize = structuralSize + file.headerPadding.byteLength
 
   const w = new BinaryWriter()

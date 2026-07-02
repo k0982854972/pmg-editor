@@ -89,7 +89,7 @@ function vec3Attr(el: Attrs, name: string): Vec3 {
 const extraAttrs = (el: Attrs, known: readonly string[]): Attrs =>
   Object.fromEntries(
     Object.entries(el)
-      .filter(([key, value]) => key.startsWith('@_') && !known.includes(key))
+      .filter(([key]) => key.startsWith('@_') && !known.includes(key))
       .map(([key, value]) => [key.slice(2), String(value)])
   )
 
@@ -115,14 +115,12 @@ export function parseMeshdesc(bytes: Uint8Array): MeshdescDocument {
   const root = parsed.meshdesc
   if (!root) throw new Error('meshdesc XML: missing <meshdesc> root element')
 
-  const groups = (root.EffectGroup ?? []).map(
-    (el): MeshdescGroup => ({
-      playMode: attr(el, 'play_mode', ''),
-      play: numAttr(el, 'play', 0),
-      effects: (el.Effect ?? []).map(parseEffect),
-      extraAttributes: extraAttrs(el, KNOWN_GROUP_ATTRS)
-    })
-  )
+  const groups = (root.EffectGroup ?? []).map((el): MeshdescGroup => ({
+    playMode: attr(el, 'play_mode', ''),
+    play: numAttr(el, 'play', 0),
+    effects: (el.Effect ?? []).map(parseEffect),
+    extraAttributes: extraAttrs(el, KNOWN_GROUP_ATTRS)
+  }))
   return {
     encoding,
     version: attr(root, 'version', ''),
@@ -138,7 +136,10 @@ const prefixed = (attrs: Attrs): Attrs =>
 
 export function serializeMeshdesc(doc: MeshdescDocument): Uint8Array {
   const tree = {
-    '?xml': { '@_version': '1.0', '@_encoding': doc.encoding.name.startsWith('utf-16') ? 'utf-16' : 'utf-8' },
+    '?xml': {
+      '@_version': '1.0',
+      '@_encoding': doc.encoding.name.startsWith('utf-16') ? 'utf-16' : 'utf-8'
+    },
     meshdesc: {
       '@_version': doc.version,
       '@_effect_version': doc.effectVersion,

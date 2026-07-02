@@ -114,10 +114,18 @@ describe('readPmg pm! v1.7 mesh', () => {
     const m = readPmg(v17File()).groups[0].meshes[0]
     FIXTURE_VERTICES.forEach((e, i) => {
       expect(readVertex(m, i)).toEqual({
-        x: e.x, y: e.y, z: e.z,
-        nx: e.nx, ny: e.ny, nz: e.nz,
-        b: e.b, g: e.g, r: e.r, a: e.a,
-        u: e.u, v: e.v
+        x: e.x,
+        y: e.y,
+        z: e.z,
+        nx: e.nx,
+        ny: e.ny,
+        nz: e.nz,
+        b: e.b,
+        g: e.g,
+        r: e.r,
+        a: e.a,
+        u: e.u,
+        v: e.v
       })
     })
   })
@@ -130,7 +138,9 @@ describe('readPmg pm! v1.7 mesh', () => {
   })
 
   it('preserves trailer bytes verbatim', () => {
-    const file = readPmg(buildPmgFixture({ meshes: [{ version: '1.7', trailer: [1, 2, 3, 4, 5] }] }))
+    const file = readPmg(
+      buildPmgFixture({ meshes: [{ version: '1.7', trailer: [1, 2, 3, 4, 5] }] })
+    )
     expect(Array.from(file.groups[0].meshes[0].trailer)).toEqual([1, 2, 3, 4, 5])
   })
 
@@ -155,8 +165,8 @@ describe('readPmg pm! v2.0 mesh', () => {
   })
 
   it('handles empty length-prefixed strings', () => {
-    const m = readPmg(buildPmgFixture({ meshes: [{ version: '2.0', textureName: '' }] }))
-      .groups[0].meshes[0]
+    const m = readPmg(buildPmgFixture({ meshes: [{ version: '2.0', textureName: '' }] })).groups[0]
+      .meshes[0]
     expect(m.textureName.text).toBe('')
   })
 
