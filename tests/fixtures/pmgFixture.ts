@@ -111,10 +111,9 @@ class Buf {
   }
 
   lpStr(text: string): this {
-    if (text.length === 0) return this.i32(0)
-    this.i32(text.length + 1)
-    this.ascii(text)
-    return this.u8(0)
+    // length excludes any terminator; no NUL is stored (verified against real files)
+    this.i32(text.length)
+    return this.ascii(text)
   }
 
   raw(data: readonly number[] | Uint8Array): this {
@@ -206,7 +205,7 @@ export function buildMeshBlock(opts: FixtureMeshOptions): Uint8Array {
     b.lpStr(texture)
   }
 
-  b.i32(60)
+  b.i32(64) // bounding size field counts itself: 4 + 60 bytes of floats
   for (const v of FIXTURE_BOUNDING_FLOATS) b.f32(v)
 
   for (const i of FIXTURE_INDICES) b.i16(i)

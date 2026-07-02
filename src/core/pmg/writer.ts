@@ -77,7 +77,7 @@ function writeMeshBlock(mesh: PmMesh): Uint8Array {
     body.lpString(mesh.textureName)
   }
 
-  body.i32(mesh.bounding.byteLength)
+  body.i32(mesh.bounding.byteLength + 4) // size field counts itself
   body.bytes(mesh.bounding)
   body.bytes(mesh.indices)
   body.bytes(mesh.stripIndices)

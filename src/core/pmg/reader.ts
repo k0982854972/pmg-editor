@@ -104,11 +104,12 @@ function readMeshBlock(r: BinaryReader, headerInfo: MeshHeaderInfo): PmMesh {
     textureName = r.lpString()
   }
 
+  // the size field counts itself: 64 on real files = 4 (field) + 60 (5 float3)
   const boundingSize = r.i32()
-  if (boundingSize < 0 || boundingSize > r.remaining) {
+  if (boundingSize < 4 || boundingSize - 4 > r.remaining) {
     throw new PmgParseError(`invalid bounding block size ${boundingSize}`, r.offset - 4)
   }
-  const bounding = r.bytes(boundingSize)
+  const bounding = r.bytes(boundingSize - 4)
 
   const indices = r.bytes(counts.indicesSize)
   const stripIndices = r.bytes(counts.stripIndicesSize)

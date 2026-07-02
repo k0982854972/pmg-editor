@@ -34,12 +34,9 @@ export function makeFixedString(text: string, length: number): FixedString {
   return { text, raw }
 }
 
-/** Build a FixedString for a length-prefixed field: text + trailing NUL, empty allowed. */
+/** Build a FixedString for a length-prefixed field: no NUL terminator, empty allowed. */
 export function makeLpString(text: string): FixedString {
-  if (text.length === 0) return { text, raw: new Uint8Array(0) }
-  const raw = new Uint8Array(text.length + 1)
-  raw.set(encodeLatin1(text))
-  return { text, raw }
+  return { text, raw: encodeLatin1(text) }
 }
 
 export class BinaryReader {
