@@ -20,19 +20,20 @@ describe('exportObj', () => {
     expect(linesOf(obj, 'o ')).toEqual([`o ${FIXTURE_NAMES.mesh}`])
   })
 
-  it('transforms positions by matrix2 with translation from elements 12..14', () => {
+  it("transforms positions as p' = M·p with translation at elements 3/7/11", () => {
+    // Verified against real files: matrix rows end with the translation component.
     // vertex0 = (1,2,3); m[i] = 100+i
-    // x' = 1*100 + 2*104 + 3*108 + 112 = 744
+    // x' = 1*100 + 2*101 + 3*102 + 103 = 711
     const v = linesOf(obj, 'v ')
     expect(v).toHaveLength(FIXTURE_VERTICES.length)
-    expect(parseFloats(v[0])).toEqual([744, 751, 758])
+    expect(parseFloats(v[0])).toEqual([711, 739, 767])
   })
 
   it('transforms normals by the rotation part only', () => {
-    // normal0 = (0,0,1) -> row 2 of M = (108,109,110)
+    // normal0 = (0,0,1) -> third column of the 3x3 part = (102,106,110)
     const vn = linesOf(obj, 'vn ')
     expect(vn).toHaveLength(FIXTURE_VERTICES.length)
-    expect(parseFloats(vn[0])).toEqual([108, 109, 110])
+    expect(parseFloats(vn[0])).toEqual([102, 106, 110])
   })
 
   it('flips the v texture coordinate', () => {

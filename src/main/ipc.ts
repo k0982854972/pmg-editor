@@ -35,6 +35,17 @@ export function registerPmgIpc(): void {
     return { path, data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength) }
   })
 
+  ipcMain.handle(
+    'pmg:openPath',
+    async (_event, rawPath: unknown): Promise<OpenPmgResult | null> => {
+      if (typeof rawPath !== 'string' || rawPath.length === 0) {
+        throw new TypeError('pmg:openPath expects a non-empty file path')
+      }
+      const data = await readFile(rawPath)
+      return { path: rawPath, data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength) }
+    }
+  )
+
   ipcMain.handle('pmg:save', async (_event, rawPath: unknown, rawData: unknown): Promise<void> => {
     const { path, data } = validateSaveArgs(rawPath, rawData)
     await writeFile(path, data)

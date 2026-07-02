@@ -16,6 +16,9 @@ export interface GltfExport {
   readonly buffer: Uint8Array
 }
 
+const transpose = (m: readonly number[]): number[] =>
+  Array.from({ length: 16 }, (_, i) => m[(i % 4) * 4 + Math.floor(i / 4)])
+
 const COMPONENT_U16 = 5123
 const COMPONENT_F32 = 5126
 const COMPONENT_U8 = 5121
@@ -139,7 +142,8 @@ function buildGltf(file: PmgFile, bufferUri: string | null): GltfExport {
       nodes.push({
         name: mesh.meshName.text,
         mesh: meshes.length - 1,
-        matrix: readMatrix(mesh.matrix2)
+        // stored row-major (translation at 3/7/11) -> glTF column-major
+        matrix: transpose(readMatrix(mesh.matrix2))
       })
     }
   }

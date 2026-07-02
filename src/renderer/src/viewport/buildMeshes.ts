@@ -48,7 +48,8 @@ export function buildMeshObject(pmMesh: PmMesh): THREE.Mesh {
   })
   const object = new THREE.Mesh(geometry, material)
   object.matrixAutoUpdate = false
-  object.matrix.fromArray(readMatrix(pmMesh.matrix2))
+  // stored row-major with translation at 3/7/11; fromArray expects column-major
+  object.matrix.fromArray(readMatrix(pmMesh.matrix2)).transpose()
   return object
 }
 

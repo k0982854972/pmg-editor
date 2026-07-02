@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { readPmg } from '../../core/pmg/reader'
 import { Inspector } from './panels/Inspector'
 import { SceneTree } from './panels/SceneTree'
 import { useEditor } from './state/editorContext'
@@ -16,6 +17,22 @@ function EditorShell(): React.JSX.Element {
     setLastFilePath(state.filePath)
     setHiddenKeys(new Set())
   }
+
+  // Dev-only hook so automated smoke tests can load a file without the native dialog.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return undefined
+    const devWindow = window as unknown as {
+      __openPmgPath?: (path: string) => Promise<void>
+    }
+    devWindow.__openPmgPath = async (path: string): Promise<void> => {
+      const result = await window.api.openPmgPath(path)
+      if (!result) return
+      dispatch({ type: 'fileLoaded', file: readPmg(result.data), path: result.path })
+    }
+    return () => {
+      delete devWindow.__openPmgPath
+    }
+  }, [dispatch])
 
   const toggleVisibility = (key: string): void => {
     setHiddenKeys((previous) => {

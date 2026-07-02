@@ -1,10 +1,11 @@
 /**
  * Wavefront OBJ/MTL exporter for parsed PMG models.
  *
- * Vertices are transformed by each mesh's matrix2 using the row-major D3D
- * convention (position' = [x y z 1] * M, translation in elements 12..14);
- * normals use the 3x3 rotation part only. The v texture coordinate is
- * flipped (1 - v) and triangle winding is kept as stored in the file.
+ * Vertices are transformed by each mesh's matrix2. Real files store the
+ * matrix row-major with the translation as the last element of each row
+ * (indices 3/7/11), i.e. position' = M · [x y z 1]^T; normals use the 3x3
+ * rotation part only. The v texture coordinate is flipped (1 - v) and
+ * triangle winding is kept as stored in the file.
  */
 import { readIndices, readMatrix, readVertex } from '../pmg/access'
 import type { PmMesh, PmgFile } from '../pmg/types'
@@ -18,15 +19,15 @@ export interface ObjExport {
 const fmt = (n: number): string => String(Number(n.toFixed(6)))
 
 const transformPosition = (m: readonly number[], x: number, y: number, z: number): number[] => [
-  x * m[0] + y * m[4] + z * m[8] + m[12],
-  x * m[1] + y * m[5] + z * m[9] + m[13],
-  x * m[2] + y * m[6] + z * m[10] + m[14]
+  x * m[0] + y * m[1] + z * m[2] + m[3],
+  x * m[4] + y * m[5] + z * m[6] + m[7],
+  x * m[8] + y * m[9] + z * m[10] + m[11]
 ]
 
 const transformDirection = (m: readonly number[], x: number, y: number, z: number): number[] => [
-  x * m[0] + y * m[4] + z * m[8],
-  x * m[1] + y * m[5] + z * m[9],
-  x * m[2] + y * m[6] + z * m[10]
+  x * m[0] + y * m[1] + z * m[2],
+  x * m[4] + y * m[5] + z * m[6],
+  x * m[8] + y * m[9] + z * m[10]
 ]
 
 function appendMesh(lines: string[], mesh: PmMesh, vertexOffset: number): number {

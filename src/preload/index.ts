@@ -5,6 +5,7 @@ import type { PmgApi } from './index.d'
 // Typed PMG file API backed by src/main/ipc.ts handlers.
 const api: PmgApi = {
   openPmg: () => ipcRenderer.invoke('pmg:openDialog'),
+  openPmgPath: (path) => ipcRenderer.invoke('pmg:openPath', path),
   savePmg: (path, data) => ipcRenderer.invoke('pmg:save', path, data),
   savePmgAs: (defaultName, data) => ipcRenderer.invoke('pmg:saveDialog', defaultName, data)
 }

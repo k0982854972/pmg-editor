@@ -87,13 +87,16 @@ describe('exportGltf', () => {
     ])
   })
 
-  it('assigns matrix2 to the node matrix verbatim', () => {
-    expect(json.nodes[0].matrix).toEqual(Array.from({ length: 16 }, (_, i) => 100 + i))
+  it('assigns the transpose of matrix2 to the node matrix (row-major -> column-major)', () => {
+    const stored = Array.from({ length: 16 }, (_, i) => 100 + i)
+    const transposed = Array.from({ length: 16 }, (_, i) => stored[(i % 4) * 4 + Math.floor(i / 4)])
+    expect(json.nodes[0].matrix).toEqual(transposed)
     expect(json.scenes[json.scene].nodes).toContain(0)
   })
 
-  it('places a pure translation at matrix elements 12..14', () => {
-    const translate = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 5, 6, 7, 1]
+  it('maps a stored translation (elements 3/7/11) to glTF elements 12..14', () => {
+    // Real files store the translation as the last element of each row.
+    const translate = [1, 0, 0, 5, 0, 1, 0, 6, 0, 0, 1, 7, 0, 0, 0, 1]
     const { json: j } = exportGltf(withMatrix2(fixtureFile(), translate)) as { json: any }
     expect(j.nodes[0].matrix.slice(12, 15)).toEqual([5, 6, 7])
   })

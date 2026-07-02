@@ -7,6 +7,7 @@ export interface PmgOpenResult {
 
 export interface PmgApi {
   openPmg(): Promise<PmgOpenResult | null>
+  openPmgPath(path: string): Promise<PmgOpenResult | null>
   savePmg(path: string, data: Uint8Array): Promise<void>
   savePmgAs(defaultName: string, data: Uint8Array): Promise<string | null>
 }
