@@ -33,6 +33,23 @@ describe('buildPlayback', () => {
     expect(playback.tracks[0].times).toEqual([0, 800])
     expect(playback.tracks[1].positions[0]).toBe(3)
   })
+
+  it('conjugates stored rotations into the FRM bind convention', () => {
+    // Verified on corpus: ani frame quats are conjugates of the FRM bind
+    // locals, so decoding must negate x/y/z (w unchanged).
+    const file = readAni(
+      buildAniFixture({
+        bones: [
+          { time: 100, frames: [makeFrame({ time: 0, qx: 0.1, qy: -0.2, qz: 0.3, qw: 0.927 })] }
+        ]
+      })
+    )
+    const track = buildPlayback(file).tracks[0]
+    expect(track.rotations[0]).toBeCloseTo(-0.1, 6)
+    expect(track.rotations[1]).toBeCloseTo(0.2, 6)
+    expect(track.rotations[2]).toBeCloseTo(-0.3, 6)
+    expect(track.rotations[3]).toBeCloseTo(0.927, 6)
+  })
 })
 
 describe('sampleTrack', () => {
@@ -61,13 +78,14 @@ describe('sampleTrack', () => {
   })
 
   it('slerps rotations along the shortest arc', () => {
-    // identity -> 90 degrees about Z; halfway must be 45 degrees about Z.
+    // Stored +90 degrees about Z decodes (conjugated) to -90 degrees;
+    // halfway must be -45 degrees about Z.
     const track = trackOf([
       makeFrame({ time: 0 }),
       makeFrame({ time: 100, qz: HALF_SQRT2, qw: HALF_SQRT2 })
     ])
     const pose = sampleTrack(track, 50)
-    expect(pose?.rotation[2]).toBeCloseTo(Math.sin(Math.PI / 8), 5)
+    expect(pose?.rotation[2]).toBeCloseTo(-Math.sin(Math.PI / 8), 5)
     expect(pose?.rotation[3]).toBeCloseTo(Math.cos(Math.PI / 8), 5)
   })
 
@@ -90,7 +108,8 @@ describe('sampleTrack', () => {
       makeFrame({ time: 100, qz: 2, qw: 0 })
     ])
     const pose = sampleTrack(track, 50)
-    expect(pose?.rotation[2]).toBeCloseTo(1, 5)
+    // Stored +z axis decodes (conjugated) to -z; magnitude normalized to 1.
+    expect(pose?.rotation[2]).toBeCloseTo(-1, 5)
   })
 })
 

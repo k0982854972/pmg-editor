@@ -3,8 +3,12 @@
  * primary bone tracks of an AniFile once (buildPlayback) and samples a
  * bone-local pose at an arbitrary time (linear position lerp, shortest-arc
  * quaternion slerp, clamped outside the key range). ANI frames are absolute
- * bone-local transforms indexed by FRM bone id (verified against corpus
- * pairs, e.g. jenna_framework.frm vs female_graffitifloor.ani). Consumed by
+ * bone-local transforms indexed by FRM bone id, with rotations stored as the
+ * CONJUGATE of the FRM bind convention — buildPlayback negates x/y/z so track
+ * rotations compose directly with the skeleton bone locals (verified
+ * numerically: for unanimated bones, ani frame-0 quats equal the conjugated
+ * bind-local quats of jenna_framework.frm vs female_graffitifloor.ani, while
+ * positions match unchanged). Consumed by
  * Viewport.tsx via applyPoseToBones in skeleton.ts; tested in
  * tests/viewport/aniPlayback.test.ts.
  */
@@ -43,7 +47,8 @@ export function buildPlayback(file: AniFile): AniPlayback {
       const frame = readAniFrame(bone, i)
       times.push(frame.time)
       positions.push(frame.position.x, frame.position.y, frame.position.z)
-      rotations.push(frame.rotation.x, frame.rotation.y, frame.rotation.z, frame.rotation.w)
+      // Conjugate: ANI stores rotations in the opposite quaternion convention.
+      rotations.push(-frame.rotation.x, -frame.rotation.y, -frame.rotation.z, frame.rotation.w)
     }
     return { times, positions, rotations }
   })
@@ -96,7 +101,8 @@ function normalize(
 ): readonly [number, number, number, number] {
   const length = Math.hypot(x, y, z, w)
   if (length === 0 || !Number.isFinite(length)) return [0, 0, 0, 1]
-  return [x / length, y / length, z / length, w / length]
+  // "+ 0" folds negative zero (from conjugation) back to +0.
+  return [x / length + 0, y / length + 0, z / length + 0, w / length]
 }
 
 /** Shortest-arc spherical interpolation between two quaternions. */

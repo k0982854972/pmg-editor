@@ -14,7 +14,7 @@ import {
   FIXTURE_SKINS,
   FIXTURE_VERTICES,
   buildPmgFixture,
-  fixtureMatrix1
+  fixtureMatrix2
 } from '../fixtures/pmgFixture'
 import { buildFrmFixture, inverseTranslationMatrix, translationMatrix } from './../frm/frmFixture'
 
@@ -116,11 +116,9 @@ describe('buildSkinnedScene', () => {
     expect(built.stats.skinnedMeshCount).toBe(1)
     expect(built.stats.unmatchedBoneNames).toEqual([])
 
-    // Geometry is baked into bind-world space: boneL2G x matrix1 x vertex.
-    const bindWorld = new THREE.Matrix4()
-      .fromArray(readMatrix(frm.bones[1].localToGlobal))
-      .transpose()
-      .multiply(new THREE.Matrix4().fromArray(fixtureMatrix1()).transpose())
+    // Geometry is baked into bind-world space with matrix2 (the static
+    // world transform), so a bind-pose skeleton reproduces the static render.
+    const bindWorld = new THREE.Matrix4().fromArray(fixtureMatrix2()).transpose()
     const v0 = FIXTURE_VERTICES[0]
     const expected = new THREE.Vector3(v0.x, v0.y, v0.z).applyMatrix4(bindWorld)
     const position = skinned.geometry.getAttribute('position')

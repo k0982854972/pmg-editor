@@ -4,9 +4,10 @@
  * with translation at indices 3/7/11 (p' = M*p); Matrix4.fromArray(...)
  * .transpose() converts to three.js. Bone local bind transform =
  * parentGlobalToLocal x boneLocalToGlobal; skinned vertices are baked into
- * bind-world space via boneLocalToGlobal x matrix1 (community rule
- * "world = boneMatrix x minorMatrix"). Consumed by Viewport.tsx; tested in
- * tests/viewport/skeleton.test.ts.
+ * bind-world space via matrix2 (the static world transform) so the bind pose
+ * reproduces the static render exactly, and bones deform relative to their
+ * file-provided inverse binds. Consumed by Viewport.tsx; tested in
+ * tests/viewport/skeleton.test.ts and tests/viewport/bindPose.test.ts.
  */
 import * as THREE from 'three'
 import type { FrmFile } from '../../../core/frm/types'
@@ -131,15 +132,18 @@ function buildSkinAttributes(
 
 function buildSkinnedMeshObject(
   pmMesh: PmMesh,
-  frm: FrmFile,
   rig: SkeletonRig,
   boneIndex: number,
   jointIndex: number | undefined
 ): THREE.SkinnedMesh {
   const geometry = buildMeshGeometry(pmMesh)
-  // Bake vertices into bind-world space: world = boneLocalToGlobal x matrix1.
-  const bindWorld = matrixOf(frm.bones[boneIndex].localToGlobal).multiply(matrixOf(pmMesh.matrix1))
-  geometry.applyMatrix4(bindWorld)
+  // Bake vertices into bind-world space with matrix2, the same transform the
+  // static path uses, so a skeleton at bind pose reproduces the static render
+  // exactly. (Corpus check: authoringBoneL2G x matrix1 == matrix2; baking
+  // matrix2 stays exact even when the loaded FRM differs slightly from the
+  // mesh's authoring skeleton.) Bone motion is then applied relatively:
+  // v' = boneWorld x globalToLocal(bind) x matrix2 x v.
+  geometry.applyMatrix4(matrixOf(pmMesh.matrix2))
   const { skinIndex, skinWeight } = buildSkinAttributes(pmMesh, boneIndex, jointIndex)
   geometry.setAttribute('skinIndex', skinIndex)
   geometry.setAttribute('skinWeight', skinWeight)
@@ -189,7 +193,6 @@ export function buildSkinnedScene(file: PmgFile, frm: FrmFile): BuiltSkinnedScen
           ? buildMeshObject(pmMesh)
           : buildSkinnedMeshObject(
               pmMesh,
-              frm,
               rig,
               boneIndex,
               lookupBone(nameIndex, pmMesh.jointName.text)
