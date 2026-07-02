@@ -1,34 +1,57 @@
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+import { useState } from 'react'
+import { Inspector } from './panels/Inspector'
+import { SceneTree } from './panels/SceneTree'
+import { useEditor } from './state/editorContext'
+import { EditorProvider } from './state/editorStore'
+import { Toolbar } from './Toolbar'
+import { Viewport } from './viewport/Viewport'
 
-function App(): React.JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+function EditorShell(): React.JSX.Element {
+  const { state, dispatch } = useEditor()
+  const [hiddenKeys, setHiddenKeys] = useState<ReadonlySet<string>>(new Set())
+  const [lastFilePath, setLastFilePath] = useState(state.filePath)
+
+  // Reset visibility when a different file is opened (adjust-state-in-render pattern).
+  if (lastFilePath !== state.filePath) {
+    setLastFilePath(state.filePath)
+    setHiddenKeys(new Set())
+  }
+
+  const toggleVisibility = (key: string): void => {
+    setHiddenKeys((previous) => {
+      const next = new Set(previous)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   return (
-    <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-        &nbsp;and <span className="ts">TypeScript</span>
-      </div>
-      <p className="tip">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
-      </div>
-      <Versions></Versions>
-    </>
+    <div className="app">
+      <Toolbar />
+      <SceneTree
+        file={state.file}
+        selection={state.selection}
+        hiddenKeys={hiddenKeys}
+        onSelect={(selection) => dispatch({ type: 'meshSelected', selection })}
+        onToggleVisibility={toggleVisibility}
+      />
+      <Viewport
+        file={state.file}
+        filePath={state.filePath}
+        selection={state.selection}
+        hiddenKeys={hiddenKeys}
+      />
+      <Inspector />
+    </div>
+  )
+}
+
+function App(): React.JSX.Element {
+  return (
+    <EditorProvider>
+      <EditorShell />
+    </EditorProvider>
   )
 }
 

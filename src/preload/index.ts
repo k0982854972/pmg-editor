@@ -1,8 +1,13 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type { PmgApi } from './index.d'
 
-// Custom APIs for renderer
-const api = {}
+// Typed PMG file API backed by src/main/ipc.ts handlers.
+const api: PmgApi = {
+  openPmg: () => ipcRenderer.invoke('pmg:openDialog'),
+  savePmg: (path, data) => ipcRenderer.invoke('pmg:save', path, data),
+  savePmgAs: (defaultName, data) => ipcRenderer.invoke('pmg:saveDialog', defaultName, data)
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
