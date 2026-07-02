@@ -6,6 +6,8 @@
  */
 import { useEffect, useState } from 'react'
 import { parseEffectXml, serializeEffectXml } from '../../../core/fx/effectXml'
+import { ResizeHandle } from '../components/ResizeHandle'
+import { usePersistedPanelWidth } from '../components/usePersistedPanelWidth'
 import { useFx } from '../state/fxContext'
 import { updateAttribute, updateNodeText } from '../state/fxEdit'
 import { AttachmentPanel } from './AttachmentPanel'
@@ -15,6 +17,16 @@ import { FxPreview } from './preview/FxPreview'
 
 type FxTab = 'effect' | 'meshdesc'
 
+const TREE_WIDTH_STORAGE_KEY = 'ui.fxTreeWidth'
+const TREE_DEFAULT_WIDTH = 320
+const TREE_MIN_WIDTH = 200
+const TREE_MAX_WIDTH = 560
+
+const PREVIEW_WIDTH_STORAGE_KEY = 'ui.fxPreviewWidth'
+const PREVIEW_DEFAULT_WIDTH = 380
+const PREVIEW_MIN_WIDTH = 280
+const PREVIEW_MAX_WIDTH = 800
+
 const basenameOf = (path: string): string => path.split(/[\\/]/).pop() ?? path
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : '未知錯誤')
@@ -23,6 +35,18 @@ function EffectPane(): React.JSX.Element {
   const { state, dispatch } = useFx()
   const { doc, selectedNodePath } = state
   const [isPreviewOpen, setIsPreviewOpen] = useState(true)
+  const [treeWidth, setTreeWidth] = usePersistedPanelWidth(
+    TREE_WIDTH_STORAGE_KEY,
+    TREE_DEFAULT_WIDTH,
+    TREE_MIN_WIDTH,
+    TREE_MAX_WIDTH
+  )
+  const [previewWidth, setPreviewWidth] = usePersistedPanelWidth(
+    PREVIEW_WIDTH_STORAGE_KEY,
+    PREVIEW_DEFAULT_WIDTH,
+    PREVIEW_MIN_WIDTH,
+    PREVIEW_MAX_WIDTH
+  )
 
   // Dev-only hook so automated smoke tests can load a file without the dialog.
   useEffect(() => {
@@ -146,13 +170,21 @@ function EffectPane(): React.JSX.Element {
         )}
       </div>
       <div className="fx-preview-layout">
-        <div className="fx-effect-body">
+        <div className="fx-effect-body" style={{ gridTemplateColumns: `${treeWidth}px auto 1fr` }}>
           <EmitterTree
             doc={state.doc}
             selectedPath={state.selectedNodePath}
             onSelect={(emitterIndex, path) =>
               dispatch({ type: 'nodeSelected', emitterIndex, path })
             }
+          />
+          <ResizeHandle
+            panelSide="left"
+            width={treeWidth}
+            minWidth={TREE_MIN_WIDTH}
+            maxWidth={TREE_MAX_WIDTH}
+            onWidthChange={setTreeWidth}
+            ariaLabel="調整發射器樹寬度"
           />
           {doc && selectedNodePath ? (
             <ParamEditor
@@ -182,9 +214,19 @@ function EffectPane(): React.JSX.Element {
           )}
         </div>
         {isPreviewOpen && (
-          <aside className="fx-preview-column">
-            <FxPreview doc={doc} selectedEmitter={state.selectedEmitter} />
-          </aside>
+          <>
+            <ResizeHandle
+              panelSide="right"
+              width={previewWidth}
+              minWidth={PREVIEW_MIN_WIDTH}
+              maxWidth={PREVIEW_MAX_WIDTH}
+              onWidthChange={setPreviewWidth}
+              ariaLabel="調整預覽欄寬度"
+            />
+            <aside className="fx-preview-column" style={{ width: previewWidth }}>
+              <FxPreview doc={doc} selectedEmitter={state.selectedEmitter} />
+            </aside>
+          </>
         )}
       </div>
     </div>

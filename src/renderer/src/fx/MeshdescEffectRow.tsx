@@ -1,39 +1,42 @@
 /**
- * One meshdesc Effect row: name, parent bone (datalist of PMG bones +
- * common tool bones), effect_name (datalist of emitter names from the
+ * One meshdesc Effect row: name, parent bone (combobox of PMG bones +
+ * common tool bones), effect_name (combobox of emitter names from the
  * selected effect-source file), offset vector and rotation angle.
- * Extracted from AttachmentPanel.tsx; the shared <datalist> elements are
- * rendered once by the panel and referenced here by id.
+ * The comboboxes replace native <datalist> suggestions with a bounded,
+ * scrollable panel so long option lists never overflow the window.
  */
 import { useState } from 'react'
 import type { MeshdescEffect } from '../../../core/fx/meshdesc'
+import { filterComboboxOptions, moveActiveIndex } from '../components/comboboxModel'
 import { CommitInput } from './CommitInput'
 
-export const BONE_DATALIST_ID = 'meshdesc-bone-options'
-export const EFFECT_NAME_DATALIST_ID = 'meshdesc-effect-name-options'
-
-interface DatalistInputProps {
+interface ComboboxInputProps {
   readonly value: string
   readonly onCommit: (value: string) => void
-  readonly listId: string
+  readonly options: readonly string[]
   readonly title?: string
   readonly ariaLabel?: string
 }
 
 /**
  * CommitInput behavior (commit on blur/Enter, revert on Escape) plus a
- * datalist suggestion source. Kept local because CommitInput is shared by
- * other tabs and does not expose the `list` attribute.
+ * custom suggestion panel: opens on focus, filters by case-insensitive
+ * substring while typing, ArrowUp/Down moves the highlight, Enter picks the
+ * highlighted option (or commits the free text), Escape closes the panel
+ * first and reverts the draft on the second press. Options are selected on
+ * mousedown so the click wins over the blur commit. Free text stays allowed.
  */
-function DatalistInput({
+function ComboboxInput({
   value,
   onCommit,
-  listId,
+  options,
   title,
   ariaLabel
-}: DatalistInputProps): React.JSX.Element {
+}: ComboboxInputProps): React.JSX.Element {
   const [draft, setDraft] = useState(value)
   const [lastValue, setLastValue] = useState(value)
+  const [isOpen, setIsOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
 
   // Re-sync when the committed value changes externally (adjust-state-in-render).
   if (lastValue !== value) {
@@ -41,32 +44,97 @@ function DatalistInput({
     setDraft(value)
   }
 
-  const commit = (): void => {
-    if (draft !== value) onCommit(draft)
+  const suggestions = filterComboboxOptions(options, draft)
+
+  const commit = (next: string): void => {
+    if (next !== value) onCommit(next)
+  }
+
+  const close = (): void => {
+    setIsOpen(false)
+    setActiveIndex(-1)
+  }
+
+  const selectOption = (option: string): void => {
+    setDraft(option)
+    commit(option)
+    close()
+  }
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      const step = event.key === 'ArrowDown' ? 1 : -1
+      setIsOpen(true)
+      setActiveIndex(moveActiveIndex(suggestions.length, isOpen ? activeIndex : -1, step))
+    } else if (event.key === 'Enter') {
+      if (isOpen && activeIndex >= 0 && activeIndex < suggestions.length) {
+        selectOption(suggestions[activeIndex])
+      } else {
+        commit(draft)
+        close()
+      }
+    } else if (event.key === 'Escape') {
+      if (isOpen) close()
+      else setDraft(value)
+    }
   }
 
   return (
-    <input
-      type="text"
-      list={listId}
-      title={title}
-      aria-label={ariaLabel}
-      value={draft}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          commit()
-        } else if (event.key === 'Escape') {
-          setDraft(value)
-        }
-      }}
-    />
+    <div className="fx-combobox">
+      <input
+        type="text"
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-autocomplete="list"
+        title={title}
+        aria-label={ariaLabel}
+        value={draft}
+        onChange={(event) => {
+          setDraft(event.target.value)
+          setIsOpen(true)
+          setActiveIndex(-1)
+        }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => {
+          commit(draft)
+          close()
+        }}
+        onKeyDown={handleKeyDown}
+      />
+      {isOpen && suggestions.length > 0 && (
+        <ul className="fx-combobox-panel" role="listbox">
+          {suggestions.map((option, index) => (
+            <li key={`${index}:${option}`}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={index === activeIndex}
+                className={
+                  index === activeIndex ? 'fx-combobox-option active' : 'fx-combobox-option'
+                }
+                ref={(element) => {
+                  if (index === activeIndex) element?.scrollIntoView({ block: 'nearest' })
+                }}
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  selectOption(option)
+                }}
+              >
+                {option}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
 export interface EffectRowProps {
   readonly effect: MeshdescEffect
+  readonly boneOptions: readonly string[]
+  readonly effectNameOptions: readonly string[]
   readonly onPatch: (patch: Partial<MeshdescEffect>) => void
   readonly onDelete: () => void
   readonly onInvalidNumber: (field: string) => void
@@ -74,6 +142,8 @@ export interface EffectRowProps {
 
 export function EffectRow({
   effect,
+  boneOptions,
+  effectNameOptions,
   onPatch,
   onDelete,
   onInvalidNumber
@@ -92,9 +162,9 @@ export function EffectRow({
       </label>
       <label className="field fx-meshdesc-field">
         <span className="field-label">骨骼 (parent)</span>
-        <DatalistInput
+        <ComboboxInput
           value={effect.parent}
-          listId={BONE_DATALIST_ID}
+          options={boneOptions}
           title="特效綁定的骨骼；候選清單來自 PMG 模型的骨骼名稱與常用工具骨骼"
           ariaLabel="骨骼 (parent)"
           onCommit={(parent) => onPatch({ parent })}
@@ -102,9 +172,9 @@ export function EffectRow({
       </label>
       <label className="field fx-meshdesc-field">
         <span className="field-label">特效名稱 (effect_name)</span>
-        <DatalistInput
+        <ComboboxInput
           value={effect.effectName}
-          listId={EFFECT_NAME_DATALIST_ID}
+          options={effectNameOptions}
           title="要播放的發射器名稱；候選清單來自選擇的特效來源檔，也可自行輸入"
           ariaLabel="特效名稱 (effect_name)"
           onCommit={(effectName) => onPatch({ effectName })}

@@ -948,3 +948,171 @@ input:focus {
   max-height: 160px;
   overflow-y: auto;
 }
+
+/* Resizable panel drag handle (FX tree / preview columns) */
+
+.ui-resize-handle {
+  flex: none;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
+  transition: background 0.12s ease;
+}
+
+.ui-resize-handle:hover,
+.ui-resize-handle:active {
+  background: #2a4a7f;
+}
+
+/* Suggestion combobox (meshdesc bone / effect-name inputs) */
+
+.fx-combobox {
+  position: relative;
+}
+
+.fx-combobox input {
+  width: 100%;
+}
+
+.fx-combobox-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  min-width: 180px;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #191c22;
+  border: 1px solid #2a2e37;
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+.fx-combobox-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fx-combobox-option:hover,
+.fx-combobox-option.active {
+  background: #2a4a7f;
+  color: #dce7ff;
+}
+
+/* Animation control strip (FRM skeleton + ANI playback in the model viewport) */
+
+.anim-bar {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: rgba(16, 19, 25, 0.88);
+  border: 1px solid #2a2e37;
+  border-radius: 6px;
+}
+
+.anim-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.anim-controls .toggle:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.anim-speed {
+  background: #1a1e26;
+  color: #d8dbe2;
+  border: 1px solid #2a2e37;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+.anim-time {
+  flex: 1;
+  min-width: 60px;
+  accent-color: #4a7fd6;
+}
+
+.anim-clock {
+  flex: none;
+  color: #aab2c0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.anim-status {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #aab2c0;
+}
+
+.anim-warning {
+  color: #e0b341;
+}
+
+/* Meshdesc effect-source slots (EffectSourceList.tsx) */
+.fx-source-list {
+  flex-wrap: wrap;
+}
+
+.fx-source-label {
+  color: #9aa0ac;
+  white-space: nowrap;
+}
+
+.fx-source-empty {
+  color: #9aa0ac;
+}
+
+.fx-source-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid #2a2e37;
+  border-radius: 4px;
+  background: #20242c;
+  color: #c9cdd6;
+  white-space: nowrap;
+}
+
+.fx-source-remove {
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: #9aa0ac;
+  cursor: pointer;
+}
+
+.fx-source-remove:hover {
+  color: #e0e3ea;
+}
+
+.fx-source-status {
+  color: #9aa0ac;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

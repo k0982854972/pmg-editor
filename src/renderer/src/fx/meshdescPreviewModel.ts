@@ -24,13 +24,13 @@ import type { PmgFile } from '../../../core/pmg/types'
 /** Must match WORLD_SCALE in previewScene.ts / meshdescScene.ts. */
 export const EFFECT_UNITS_TO_WORLD = 0.01
 
-/** Tool bones that commonly appear as meshdesc parents. */
+/** Tool bones that commonly appear as meshdesc parents (community casing). */
 export const COMMON_TOOL_BONES: readonly string[] = [
-  'HandtoolR',
-  'HandtoolL',
-  'BodytoolR',
-  'BodytoolL',
-  'backtool',
+  'HandToolR',
+  'HandToolL',
+  'BodyToolR',
+  'BodyToolL',
+  'BackTool',
   'Bip01'
 ]
 
@@ -146,4 +146,43 @@ export function resolveEmitterIndex(doc: EffectDocument, effectName: string): nu
 /** Distinct emitter display names of an effect document (datalist options). */
 export function emitterNamesOf(doc: EffectDocument): readonly string[] {
   return [...new Set(doc.emitters.map((emitter) => emitterDisplayName(emitter.node)))]
+}
+
+export interface EmitterAcrossResolution {
+  readonly sourceIndex: number
+  readonly emitterIndex: number
+}
+
+/**
+ * Resolves an effect_name against multiple effect sources: the first
+ * source (in slot order) containing the emitter wins. Null when no source
+ * resolves the name.
+ */
+export function resolveEmitterAcross(
+  sources: readonly EffectDocument[],
+  effectName: string
+): EmitterAcrossResolution | null {
+  for (let sourceIndex = 0; sourceIndex < sources.length; sourceIndex++) {
+    const emitterIndex = resolveEmitterIndex(sources[sourceIndex], effectName)
+    if (emitterIndex !== null) return { sourceIndex, emitterIndex }
+  }
+  return null
+}
+
+/**
+ * Emitter display names merged across all sources in slot order, deduped
+ * case-insensitively (first occurrence wins) — combobox suggestions.
+ */
+export function mergedEmitterNames(sources: readonly EffectDocument[]): readonly string[] {
+  const seen = new Set<string>()
+  const names: string[] = []
+  for (const source of sources) {
+    for (const name of emitterNamesOf(source)) {
+      const key = name.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      names.push(name)
+    }
+  }
+  return names
 }

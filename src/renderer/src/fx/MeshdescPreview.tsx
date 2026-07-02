@@ -1,8 +1,9 @@
 /**
  * Live preview pane for the meshdesc binding tab: renders the sibling PMG
  * weapon model plus the particle simulation of every Effect row whose
- * effect_name resolves in the selected effect-source document, anchored at
- * the row's parent mesh translation + scaled offset (approximation — see
+ * effect_name resolves in one of the loaded effect-source documents (the
+ * first source containing the emitter wins), anchored at the row's parent
+ * mesh translation + scaled offset (approximation — see
  * meshdescPreviewModel.ts). Re-anchors/re-compiles on any attachment edit;
  * all attached emitters loop forever. Exposes window.__meshdescPreviewStats
  * in dev builds for smoke tests.
@@ -19,7 +20,7 @@ import {
   stepParticles
 } from './preview/particleModel'
 import type { AnchorResolution } from './meshdescPreviewModel'
-import { anchorSourcesOf, effectAnchorWorld, resolveEmitterIndex } from './meshdescPreviewModel'
+import { anchorSourcesOf, effectAnchorWorld, resolveEmitterAcross } from './meshdescPreviewModel'
 import type { MeshdescSceneHandle } from './meshdescScene'
 import { createMeshdescScene } from './meshdescScene'
 
@@ -32,7 +33,7 @@ interface MeshdescPreviewProps {
   readonly doc: MeshdescDocument | null
   readonly pmgFile: PmgFile | null
   readonly modelStatus: ModelStatus | null
-  readonly effectSource: EffectDocument | null
+  readonly effectSources: readonly EffectDocument[]
 }
 
 interface AttachmentPlan {
@@ -58,18 +59,17 @@ const totalParticles = (state: ParticleState): number =>
 
 function buildAttachmentPlans(
   doc: MeshdescDocument | null,
-  effectSource: EffectDocument | null,
+  effectSources: readonly EffectDocument[],
   pmgFile: PmgFile | null
 ): readonly AttachmentPlan[] {
   if (!doc) return []
   const meshes = pmgFile ? anchorSourcesOf(pmgFile) : []
   return doc.groups.flatMap((group, groupIndex) =>
     group.effects.map((effect, effectIndex): AttachmentPlan => {
-      const emitterIndex = effectSource
-        ? resolveEmitterIndex(effectSource, effect.effectName)
+      const resolved = resolveEmitterAcross(effectSources, effect.effectName)
+      const compiled = resolved
+        ? compileEmitter(effectSources[resolved.sourceIndex], resolved.emitterIndex)
         : null
-      const compiled =
-        effectSource && emitterIndex !== null ? compileEmitter(effectSource, emitterIndex) : null
       return {
         key: `${groupIndex}:${effectIndex}`,
         effect,
@@ -91,7 +91,7 @@ export function MeshdescPreview({
   doc,
   pmgFile,
   modelStatus,
-  effectSource
+  effectSources
 }: MeshdescPreviewProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<MeshdescSceneHandle | null>(null)
@@ -99,8 +99,8 @@ export function MeshdescPreview({
   const activeRef = useRef<readonly AttachmentPlan[]>([])
 
   const plans = useMemo(
-    () => buildAttachmentPlans(doc, effectSource, pmgFile),
-    [doc, effectSource, pmgFile]
+    () => buildAttachmentPlans(doc, effectSources, pmgFile),
+    [doc, effectSources, pmgFile]
   )
   const activePlans = useMemo(
     () => plans.filter((plan): plan is ActiveAttachmentPlan => plan.compiled !== null),
@@ -192,7 +192,7 @@ export function MeshdescPreview({
               title="此綁定列的特效解析狀態"
             >
               <span className="fx-preview-texture-name">
-                {plan.effect.name}：{attachmentStatusText(plan, effectSource !== null)}
+                {plan.effect.name}：{attachmentStatusText(plan, effectSources.length > 0)}
               </span>
             </div>
           )

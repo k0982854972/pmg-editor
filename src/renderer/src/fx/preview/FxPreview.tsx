@@ -8,13 +8,14 @@
  * in dev builds for smoke tests.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { describeDds, parseDdsHeader } from '../../../../core/dds/ddsFormat'
 import type { EffectDocument } from '../../../../core/fx/effectXml'
 import { emitterDisplayName } from '../../../../core/fx/effectXml'
 import { CommitInput } from '../CommitInput'
 import type { CompiledEmitter, ParticleState } from './particleModel'
 import { compileEmitter, createInitialState, createSeededRng, stepParticles } from './particleModel'
 import type { PreviewSceneHandle } from './previewScene'
-import { createPreviewScene, parseDdsTexture } from './previewScene'
+import { createDdsTexture, createPreviewScene } from './previewScene'
 
 interface FxPreviewProps {
   readonly doc: EffectDocument | null
@@ -27,18 +28,28 @@ interface SimRef {
   rng: () => number
 }
 
-type TextureLoadState = 'loading' | 'loaded' | 'missing'
+type TextureLoadState = 'loading' | 'loaded' | 'missing' | 'undecodable'
 
 interface TextureStatus {
   readonly state: TextureLoadState
-  /** Tooltip detail: resolved path when loaded, reason when missing. */
+  /** Tooltip detail: resolved path when loaded, reason otherwise. */
   readonly detail: string
 }
 
 const TEXTURE_STATUS_PRESENTATION: Record<TextureLoadState, { icon: string; label: string }> = {
   loading: { icon: '⏳', label: '載入中' },
   loaded: { icon: '✓', label: '已載入' },
-  missing: { icon: '✗', label: '找不到（使用預設圓點）' }
+  missing: { icon: '✗', label: '找不到（使用預設圓點）' },
+  undecodable: { icon: '⚠', label: '無法解碼（使用預設圓點）' }
+}
+
+/** Tooltip detail for a failed decode: DDS format summary, or the error. */
+const decodeFailureDetail = (bytes: Uint8Array, error: unknown): string => {
+  try {
+    return `格式：${describeDds(parseDdsHeader(bytes))}`
+  } catch {
+    return `格式：${error instanceof Error ? error.message : String(error)}`
+  }
 }
 
 const DATA_ROOT_STORAGE_KEY = 'fx.dataRoot'
@@ -167,22 +178,18 @@ export function FxPreview({ doc, selectedEmitter }: FxPreviewProps): React.JSX.E
             setStatus(name, { state: 'missing', detail: '在資料根目錄下找不到對應的 .dds 檔' })
             return
           }
-          // Decode one texture per EffectType slot: setTexture() disposes
-          // per slot, so a shared instance must not be reused across slots.
-          let isApplied = false
-          compiled.effectTypes.forEach((effectType, index) => {
-            if (effectType.atlas?.texture !== name) return
-            const texture = parseDdsTexture(new Uint8Array(result.data))
-            if (!texture) return
-            sceneRef.current?.setTexture(index, texture)
-            isApplied = true
-          })
-          setStatus(
-            name,
-            isApplied
-              ? { state: 'loaded', detail: result.path }
-              : { state: 'missing', detail: `DDS 解析失敗：${result.path}` }
-          )
+          const bytes = new Uint8Array(result.data)
+          try {
+            // Decode one texture per EffectType slot: setTexture() disposes
+            // per slot, so a shared instance must not be reused across slots.
+            compiled.effectTypes.forEach((effectType, index) => {
+              if (effectType.atlas?.texture !== name) return
+              sceneRef.current?.setTexture(index, createDdsTexture(bytes))
+            })
+            setStatus(name, { state: 'loaded', detail: result.path })
+          } catch (error: unknown) {
+            setStatus(name, { state: 'undecodable', detail: decodeFailureDetail(bytes, error) })
+          }
         })
         .catch(() => {
           setStatus(name, { state: 'missing', detail: '讀取貼圖時發生錯誤' })

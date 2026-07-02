@@ -4,13 +4,14 @@
  * Billboards are computed in view space in the vertex shader (camera-facing
  * with per-particle spin); the material is additive, depth-write off. The
  * default particle texture is a soft radial sprite drawn on a canvas;
- * setTexture() swaps in a DDS-decoded atlas texture per EffectType.
+ * setTexture() swaps in a DDS-decoded atlas texture per EffectType
+ * (decoded to RGBA8 by src/core/dds/ddsDecode.ts via createDdsTexture).
  * Sim positions/sizes are in effect units (~cm) and scaled by WORLD_SCALE
  * into the scene. Consumed by FxPreview.tsx.
  */
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { DDSLoader } from 'three/examples/jsm/loaders/DDSLoader.js'
+import { decodeDds } from '../../../../core/dds/ddsDecode'
 import type { AtlasCell, CompiledEmitter, ParticleState } from './particleModel'
 import { MAX_PARTICLES_PER_TYPE, particleColorOf, particleSizeOf } from './particleModel'
 
@@ -47,28 +48,28 @@ void main() {
 `
 
 /**
- * Decode a DDS byte buffer into a texture usable by setTexture(); returns
- * null on any parse problem so callers can fall back to the default sprite.
+ * Decode a DDS byte buffer (mip 0) into an RGBA8 texture usable by
+ * setTexture(). Uses the project decoder (DXT1/3/5, DX10 BC1-3 and
+ * uncompressed 16/24/32-bit bitmask formats — the formats Mabinogi ships).
+ * Throws on unsupported formats or malformed files so callers can surface
+ * the reason; flipY stays false to match the atlas UV math in
+ * atlasUvTransform().
  */
-export function parseDdsTexture(data: Uint8Array): THREE.Texture | null {
-  try {
-    const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
-    const dds = new DDSLoader().parse(buffer as ArrayBuffer, true)
-    if (!dds || dds.isCubemap || !dds.mipmaps || dds.mipmaps.length === 0) return null
-    const texture = new THREE.CompressedTexture(
-      dds.mipmaps,
-      dds.width,
-      dds.height,
-      dds.format as THREE.CompressedPixelFormat
-    )
-    texture.minFilter = dds.mipmapCount > 1 ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter
-    texture.magFilter = THREE.LinearFilter
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.needsUpdate = true
-    return texture
-  } catch {
-    return null
-  }
+export function createDdsTexture(bytes: Uint8Array): THREE.DataTexture {
+  const { width, height, rgba } = decodeDds(bytes)
+  const texture = new THREE.DataTexture(
+    rgba,
+    width,
+    height,
+    THREE.RGBAFormat,
+    THREE.UnsignedByteType
+  )
+  texture.flipY = false
+  texture.minFilter = THREE.LinearFilter
+  texture.magFilter = THREE.LinearFilter
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.needsUpdate = true
+  return texture
 }
 
 export interface PreviewSceneHandle {
@@ -115,8 +116,9 @@ function createDefaultSprite(): THREE.Texture {
  * UV offset/repeat for the atlas cell, advancing column x row animation
  * frames globally by emitter time (per-particle frame phase is not
  * modelled). A negative y-repeat compensates for flipY=false textures.
+ * Shared with meshdescScene.ts.
  */
-function atlasUvTransform(
+export function atlasUvTransform(
   atlas: AtlasCell | null,
   flipY: boolean,
   timeMs: number

@@ -64,9 +64,31 @@ export interface AniApi {
   openAniPath(path: string): Promise<AniOpenResult | null>
 }
 
+export interface FrmOpenResult {
+  readonly path: string
+  readonly data: Uint8Array
+}
+
+export interface FrmApi {
+  openFrm(): Promise<FrmOpenResult | null>
+  openFrmPath(path: string): Promise<FrmOpenResult | null>
+}
+
+export interface EffectIndexResult {
+  readonly dirPath: string
+  /** Lowercased emitter name -> absolute effect XML path. */
+  readonly entries: Readonly<Record<string, string>>
+  readonly fileCount: number
+}
+
+export interface EffectIndexApi {
+  /** Builds (or reuses) the emitter-name index; null when no effect dir. */
+  buildEffectIndex(dataRoot: string): Promise<EffectIndexResult | null>
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi & AniApi
+    api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi & AniApi & FrmApi & EffectIndexApi
   }
 }

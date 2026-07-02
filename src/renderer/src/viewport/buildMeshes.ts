@@ -11,7 +11,8 @@ export const meshKeyOf = (groupIndex: number, meshIndex: number): string =>
 
 const COLOR_BYTE_MAX = 255
 
-export function buildMeshObject(pmMesh: PmMesh): THREE.Mesh {
+/** Untransformed geometry from the mesh's raw vertex/index blocks. */
+export function buildMeshGeometry(pmMesh: PmMesh): THREE.BufferGeometry {
   const count = pmMesh.counts.vertexCount
   const positions = new Float32Array(count * 3)
   const normals = new Float32Array(count * 3)
@@ -39,14 +40,21 @@ export function buildMeshObject(pmMesh: PmMesh): THREE.Mesh {
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
   geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
   geometry.setIndex(new THREE.BufferAttribute(readIndices(pmMesh), 1))
+  return geometry
+}
 
-  const material = new THREE.MeshStandardMaterial({
+/** Shared material settings for all viewport meshes (static and skinned). */
+export function createMeshMaterial(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
     vertexColors: true,
     side: THREE.DoubleSide,
     roughness: 0.85,
     metalness: 0.05
   })
-  const object = new THREE.Mesh(geometry, material)
+}
+
+export function buildMeshObject(pmMesh: PmMesh): THREE.Mesh {
+  const object = new THREE.Mesh(buildMeshGeometry(pmMesh), createMeshMaterial())
   object.matrixAutoUpdate = false
   // stored row-major with translation at 3/7/11; fromArray expects column-major
   object.matrix.fromArray(readMatrix(pmMesh.matrix2)).transpose()

@@ -17,6 +17,8 @@ import {
   COMMON_TOOL_BONES,
   EFFECT_UNITS_TO_WORLD,
   effectAnchorWorld,
+  mergedEmitterNames,
+  resolveEmitterAcross,
   resolveEmitterIndex,
   resolveParentAnchor,
   type MeshAnchorSource
@@ -52,13 +54,24 @@ describe('buildBoneCandidates', () => {
     expect(buildBoneCandidates([])).toEqual(COMMON_TOOL_BONES)
   })
 
+  it('uses the community-correct tool bone casing', () => {
+    expect(COMMON_TOOL_BONES).toEqual([
+      'HandToolR',
+      'HandToolL',
+      'BodyToolR',
+      'BodyToolL',
+      'BackTool',
+      'Bip01'
+    ])
+  })
+
   it('puts PMG names first and dedups common bones case-insensitively', () => {
     const candidates = buildBoneCandidates(['handtoolr', 'blade01'])
     expect(candidates[0]).toBe('handtoolr')
     expect(candidates[1]).toBe('blade01')
-    // 'HandtoolR' from the common list is dropped: PMG casing wins.
+    // 'HandToolR' from the common list is dropped: PMG casing wins.
     expect(candidates.filter((name) => name.toLowerCase() === 'handtoolr')).toEqual(['handtoolr'])
-    expect(candidates).toContain('HandtoolL')
+    expect(candidates).toContain('HandToolL')
     expect(candidates).toContain('Bip01')
   })
 
@@ -149,5 +162,43 @@ describe('resolveEmitterIndex', () => {
     expect(resolveEmitterIndex(doc, 'missing_fx')).toBeNull()
     expect(resolveEmitterIndex(doc, '')).toBeNull()
     expect(resolveEmitterIndex(doc, '  ')).toBeNull()
+  })
+})
+
+describe('multi-source emitter resolution', () => {
+  const parse = (xml: string): ReturnType<typeof parseEffectXml> =>
+    parseEffectXml(new TextEncoder().encode(xml))
+  const docA = parse(
+    `<effect_ver7 version="7">
+  <emitter classname="CEmitterType" name="dark_wind01" />
+  <emitter classname="CEmitterType" name="shared_fx" />
+</effect_ver7>`
+  )
+  const docB = parse(
+    `<effect_ver7 version="7">
+  <emitter classname="CEmitterType" name="aura01" />
+  <emitter classname="CEmitterType" name="SHARED_FX" />
+</effect_ver7>`
+  )
+
+  it('resolveEmitterAcross returns the first source containing the emitter', () => {
+    expect(resolveEmitterAcross([docA, docB], 'aura01')).toEqual({
+      sourceIndex: 1,
+      emitterIndex: 0
+    })
+    expect(resolveEmitterAcross([docA, docB], 'shared_fx')).toEqual({
+      sourceIndex: 0,
+      emitterIndex: 1
+    })
+  })
+
+  it('resolveEmitterAcross returns null for unknown names or no sources', () => {
+    expect(resolveEmitterAcross([docA, docB], 'missing_fx')).toBeNull()
+    expect(resolveEmitterAcross([], 'dark_wind01')).toBeNull()
+  })
+
+  it('mergedEmitterNames merges in source order, deduped case-insensitively', () => {
+    expect(mergedEmitterNames([docA, docB])).toEqual(['dark_wind01', 'shared_fx', 'aura01'])
+    expect(mergedEmitterNames([])).toEqual([])
   })
 })

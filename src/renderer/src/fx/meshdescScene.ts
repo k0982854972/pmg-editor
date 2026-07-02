@@ -7,8 +7,10 @@
  * mirrors previewScene.ts, which is single-emitter and owned by the FX tab;
  * this variant adds a per-attachment world anchor and the PMG model. The
  * mesh building mirrors viewport/buildMeshes.ts (only fitCamera may be
- * imported from viewport/). Particles use the default soft sprite — DDS
- * atlas textures are not resolved in this approximate preview.
+ * imported from viewport/). DDS atlas textures are resolved through
+ * window.api.readFxTexture with the data root persisted by the FX tab
+ * (localStorage fx.dataRoot); any miss or decode failure falls back
+ * silently to the default soft sprite.
  */
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -18,6 +20,7 @@ import type { Vec3 } from '../../../core/fx/meshdesc'
 import { computeCameraFit } from '../viewport/fitCamera'
 import type { CompiledEmitter, ParticleState } from './preview/particleModel'
 import { MAX_PARTICLES_PER_TYPE, particleColorOf, particleSizeOf } from './preview/particleModel'
+import { atlasUvTransform, createDdsTexture } from './preview/previewScene'
 
 /** Sim positions/sizes are effect units (~cm); must match previewScene.ts. */
 const WORLD_SCALE = 0.01
@@ -48,12 +51,24 @@ void main() {
 
 const FRAGMENT_SHADER = `
 uniform sampler2D map;
+uniform vec4 uvTransform;
 varying vec2 vUv;
 varying vec4 vColor;
 void main() {
-  gl_FragColor = texture2D(map, vUv) * vColor;
+  gl_FragColor = texture2D(map, uvTransform.xy + vUv * uvTransform.zw) * vColor;
 }
 `
+
+/** Same persisted data root the FX preview tab writes (FxPreview.tsx). */
+const DATA_ROOT_STORAGE_KEY = 'fx.dataRoot'
+
+const readStoredDataRoot = (): string => {
+  try {
+    return (localStorage.getItem(DATA_ROOT_STORAGE_KEY) ?? '').trim()
+  } catch {
+    return ''
+  }
+}
 
 export interface MeshdescAttachment {
   readonly compiled: CompiledEmitter
@@ -77,6 +92,8 @@ interface Renderable {
   readonly offsets: THREE.InstancedBufferAttribute
   readonly colors: THREE.InstancedBufferAttribute
   readonly sizeRots: THREE.InstancedBufferAttribute
+  /** DDS atlas texture when resolved; null keeps the default sprite. */
+  texture: THREE.Texture | null
 }
 
 interface AttachmentBatch {
@@ -129,7 +146,10 @@ function createRenderable(sprite: THREE.Texture): Renderable {
   geometry.instanceCount = 0
 
   const material = new THREE.ShaderMaterial({
-    uniforms: { map: { value: sprite } },
+    uniforms: {
+      map: { value: sprite },
+      uvTransform: { value: new THREE.Vector4(0, 0, 1, 1) }
+    },
     vertexShader: VERTEX_SHADER,
     fragmentShader: FRAGMENT_SHADER,
     transparent: true,
@@ -139,7 +159,7 @@ function createRenderable(sprite: THREE.Texture): Renderable {
   })
   const mesh = new THREE.Mesh(geometry, material)
   mesh.frustumCulled = false
-  return { mesh, geometry, material, offsets, colors, sizeRots }
+  return { mesh, geometry, material, offsets, colors, sizeRots, texture: null }
 }
 
 /** PMG mesh -> THREE.Mesh, mirroring viewport/buildMeshes.ts. */
@@ -218,6 +238,10 @@ function fillRenderable(
   renderable.colors.needsUpdate = true
   renderable.sizeRots.needsUpdate = true
   renderable.geometry.instanceCount = count
+  // Default sprite is a flipY=true CanvasTexture; DDS textures are flipY=false.
+  const flipY = renderable.texture?.flipY ?? true
+  const [x, y, z, w] = atlasUvTransform(effectType.atlas, flipY, state?.timeMs ?? 0)
+  ;(renderable.material.uniforms.uvTransform.value as THREE.Vector4).set(x, y, z, w)
 }
 
 export function createMeshdescScene(
@@ -291,6 +315,42 @@ export function createMeshdescScene(
     for (const renderable of batch.renderables) {
       renderable.geometry.dispose()
       renderable.material.dispose()
+      renderable.texture?.dispose()
+    }
+  }
+
+  // Bumped on every syncAttachments()/dispose() so in-flight async texture
+  // reads for replaced batches are dropped instead of applied.
+  let textureGeneration = 0
+
+  const applyTexture = (renderable: Renderable, data: Uint8Array): void => {
+    try {
+      const texture = createDdsTexture(data)
+      renderable.texture?.dispose()
+      renderable.texture = texture
+      renderable.material.uniforms.map.value = texture
+    } catch {
+      // Undecodable DDS: keep the default sprite silently.
+    }
+  }
+
+  const loadBatchTextures = (targets: readonly AttachmentBatch[]): void => {
+    const root = readStoredDataRoot()
+    if (root === '') return
+    const generation = textureGeneration
+    for (const batch of targets) {
+      batch.compiled.effectTypes.forEach((effectType, index) => {
+        const name = effectType.atlas?.texture
+        const renderable = batch.renderables[index]
+        if (!name || !renderable) return
+        window.api
+          .readFxTexture(root, name)
+          .then((result) => {
+            if (generation !== textureGeneration || !result) return
+            applyTexture(renderable, new Uint8Array(result.data))
+          })
+          .catch(() => undefined)
+      })
     }
   }
 
@@ -321,6 +381,7 @@ export function createMeshdescScene(
     },
 
     syncAttachments(attachments: readonly MeshdescAttachment[]): void {
+      textureGeneration += 1
       batches.forEach(disposeBatch)
       batches = attachments.map((attachment) => {
         const group = new THREE.Group()
@@ -330,6 +391,7 @@ export function createMeshdescScene(
         scene.add(group)
         return { group, compiled: attachment.compiled, renderables }
       })
+      loadBatchTextures(batches)
     },
 
     updateParticles(states: readonly (ParticleState | null)[]): void {
@@ -345,6 +407,7 @@ export function createMeshdescScene(
       observer.disconnect()
       renderer.setAnimationLoop(null)
       controls.dispose()
+      textureGeneration += 1
       batches.forEach(disposeBatch)
       batches = []
       modelMeshes.forEach(disposeObject)

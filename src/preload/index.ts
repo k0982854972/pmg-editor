@@ -1,11 +1,21 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { AniApi, DdsApi, ExportApi, FxApi, FxTextureApi, PmgApi } from './index.d'
+import type {
+  AniApi,
+  DdsApi,
+  EffectIndexApi,
+  ExportApi,
+  FrmApi,
+  FxApi,
+  FxTextureApi,
+  PmgApi
+} from './index.d'
 
-// Typed PMG + FX + DDS + ANI file API backed by src/main/ipc.ts,
-// src/main/fxIpc.ts, src/main/textureIpc.ts, src/main/ddsIpc.ts and
-// src/main/aniIpc.ts handlers.
-const api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi & AniApi = {
+// Typed PMG + FX + DDS + ANI + FRM file API backed by src/main/ipc.ts,
+// src/main/fxIpc.ts, src/main/textureIpc.ts, src/main/ddsIpc.ts,
+// src/main/aniIpc.ts, src/main/frmIpc.ts and src/main/effectIndexIpc.ts
+// handlers.
+const api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi & AniApi & FrmApi & EffectIndexApi = {
   openPmg: () => ipcRenderer.invoke('pmg:openDialog'),
   openPmgPath: (path) => ipcRenderer.invoke('pmg:openPath', path),
   savePmg: (path, data) => ipcRenderer.invoke('pmg:save', path, data),
@@ -27,7 +37,10 @@ const api: PmgApi & FxApi & ExportApi & FxTextureApi & DdsApi & AniApi = {
   importPng: () => ipcRenderer.invoke('dds:importPngDialog'),
   exportPng: (defaultName, data) => ipcRenderer.invoke('dds:exportPngDialog', defaultName, data),
   openAni: () => ipcRenderer.invoke('ani:openDialog'),
-  openAniPath: (path) => ipcRenderer.invoke('ani:openPath', path)
+  openAniPath: (path) => ipcRenderer.invoke('ani:openPath', path),
+  openFrm: () => ipcRenderer.invoke('frm:openDialog'),
+  openFrmPath: (path) => ipcRenderer.invoke('frm:openPath', path),
+  buildEffectIndex: (dataRoot) => ipcRenderer.invoke('fx:buildEffectIndex', dataRoot)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
