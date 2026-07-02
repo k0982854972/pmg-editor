@@ -29,9 +29,18 @@ export interface ExportApi {
   exportGlb(defaultName: string, data: Uint8Array): Promise<string | null>
 }
 
+export interface FxTextureResult {
+  readonly path: string
+  readonly data: Uint8Array
+}
+
+export interface FxTextureApi {
+  readFxTexture(dataRoot: string, textureName: string): Promise<FxTextureResult | null>
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: PmgApi & FxApi & ExportApi
+    api: PmgApi & FxApi & ExportApi & FxTextureApi
   }
 }

@@ -561,3 +561,97 @@ input:focus {
 .fx-meshdesc-add {
   margin-top: 8px;
 }
+
+/* FX particle preview panel */
+
+.fx-preview-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.fx-preview-layout .fx-effect-body {
+  min-width: 0;
+}
+
+.fx-preview-column {
+  width: 380px;
+  flex: none;
+  min-height: 0;
+  border-left: 1px solid #2a2e37;
+  background: #0c0e12;
+}
+
+.fx-preview-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+.fx-preview-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #14171c;
+  border-bottom: 1px solid #2a2e37;
+}
+
+.fx-preview-loop {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #aab2c0;
+  font-size: 12px;
+}
+
+.fx-preview-emitter {
+  flex: 1;
+  min-width: 0;
+  background: #1c1f26;
+  color: #d7dce4;
+  border: 1px solid #2a2e37;
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+.fx-preview-label {
+  color: #8b93a2;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.fx-preview-dataroot {
+  flex: 1;
+  min-width: 0;
+}
+
+.fx-preview-canvas {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.fx-preview-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fx-preview-empty {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #6b7280;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.fx-preview-toggle.active {
+  color: #8ab4ff;
+  border-color: #4a7fd6;
+}

@@ -1,9 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { ExportApi, FxApi, PmgApi } from './index.d'
+import type { ExportApi, FxApi, FxTextureApi, PmgApi } from './index.d'
 
-// Typed PMG + FX file API backed by src/main/ipc.ts and src/main/fxIpc.ts handlers.
-const api: PmgApi & FxApi & ExportApi = {
+// Typed PMG + FX file API backed by src/main/ipc.ts, src/main/fxIpc.ts and
+// src/main/textureIpc.ts handlers.
+const api: PmgApi & FxApi & ExportApi & FxTextureApi = {
   openPmg: () => ipcRenderer.invoke('pmg:openDialog'),
   openPmgPath: (path) => ipcRenderer.invoke('pmg:openPath', path),
   savePmg: (path, data) => ipcRenderer.invoke('pmg:save', path, data),
@@ -14,7 +15,9 @@ const api: PmgApi & FxApi & ExportApi = {
   saveFxAs: (defaultName, data) => ipcRenderer.invoke('fx:saveDialog', defaultName, data),
   exportObj: (defaultName, obj, mtl) =>
     ipcRenderer.invoke('export:objDialog', defaultName, obj, mtl),
-  exportGlb: (defaultName, data) => ipcRenderer.invoke('export:glbDialog', defaultName, data)
+  exportGlb: (defaultName, data) => ipcRenderer.invoke('export:glbDialog', defaultName, data),
+  readFxTexture: (dataRoot, textureName) =>
+    ipcRenderer.invoke('fx:readTexture', dataRoot, textureName)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

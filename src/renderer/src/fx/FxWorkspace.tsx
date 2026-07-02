@@ -11,6 +11,7 @@ import { updateAttribute, updateNodeText } from '../state/fxEdit'
 import { AttachmentPanel } from './AttachmentPanel'
 import { EmitterTree } from './EmitterTree'
 import { ParamEditor } from './ParamEditor'
+import { FxPreview } from './preview/FxPreview'
 
 type FxTab = 'effect' | 'meshdesc'
 
@@ -21,6 +22,7 @@ const messageOf = (error: unknown): string => (error instanceof Error ? error.me
 function EffectPane(): React.JSX.Element {
   const { state, dispatch } = useFx()
   const { doc, selectedNodePath } = state
+  const [isPreviewOpen, setIsPreviewOpen] = useState(true)
 
   // Dev-only hook so automated smoke tests can load a file without the dialog.
   useEffect(() => {
@@ -100,6 +102,13 @@ function EffectPane(): React.JSX.Element {
         <button type="button" disabled={!state.doc} onClick={() => void handleSaveAs()}>
           另存新檔
         </button>
+        <button
+          type="button"
+          className={isPreviewOpen ? 'fx-preview-toggle active' : 'fx-preview-toggle'}
+          onClick={() => setIsPreviewOpen((value) => !value)}
+        >
+          預覽
+        </button>
         <span className="toolbar-file">
           {state.filePath ? basenameOf(state.filePath) : '未開啟檔案'}
           {state.isDirty && (
@@ -121,37 +130,46 @@ function EffectPane(): React.JSX.Element {
           </span>
         )}
       </div>
-      <div className="fx-effect-body">
-        <EmitterTree
-          doc={state.doc}
-          selectedPath={state.selectedNodePath}
-          onSelect={(emitterIndex, path) => dispatch({ type: 'nodeSelected', emitterIndex, path })}
-        />
-        {doc && selectedNodePath ? (
-          <ParamEditor
-            doc={doc}
-            path={selectedNodePath}
-            onAttributeCommit={(key, value) =>
-              commitEdit(() =>
-                dispatch({
-                  type: 'docEdited',
-                  doc: updateAttribute(doc, selectedNodePath, key, value)
-                })
-              )
-            }
-            onTextCommit={(text) =>
-              commitEdit(() =>
-                dispatch({
-                  type: 'docEdited',
-                  doc: updateNodeText(doc, selectedNodePath, text)
-                })
-              )
+      <div className="fx-preview-layout">
+        <div className="fx-effect-body">
+          <EmitterTree
+            doc={state.doc}
+            selectedPath={state.selectedNodePath}
+            onSelect={(emitterIndex, path) =>
+              dispatch({ type: 'nodeSelected', emitterIndex, path })
             }
           />
-        ) : (
-          <section className="fx-params">
-            <p className="panel-empty">從左側選取節點以編輯屬性</p>
-          </section>
+          {doc && selectedNodePath ? (
+            <ParamEditor
+              doc={doc}
+              path={selectedNodePath}
+              onAttributeCommit={(key, value) =>
+                commitEdit(() =>
+                  dispatch({
+                    type: 'docEdited',
+                    doc: updateAttribute(doc, selectedNodePath, key, value)
+                  })
+                )
+              }
+              onTextCommit={(text) =>
+                commitEdit(() =>
+                  dispatch({
+                    type: 'docEdited',
+                    doc: updateNodeText(doc, selectedNodePath, text)
+                  })
+                )
+              }
+            />
+          ) : (
+            <section className="fx-params">
+              <p className="panel-empty">從左側選取節點以編輯屬性</p>
+            </section>
+          )}
+        </div>
+        {isPreviewOpen && (
+          <aside className="fx-preview-column">
+            <FxPreview doc={doc} selectedEmitter={state.selectedEmitter} />
+          </aside>
         )}
       </div>
     </div>

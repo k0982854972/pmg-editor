@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerPmgIpc } from './ipc'
 import { registerFxIpc } from './fxIpc'
+import { registerTextureIpc } from './textureIpc'
 
 function createWindow(): void {
   // Create the browser window.
@@ -54,6 +55,7 @@ app.whenReady().then(() => {
 
   registerPmgIpc()
   registerFxIpc()
+  registerTextureIpc()
 
   createWindow()
 

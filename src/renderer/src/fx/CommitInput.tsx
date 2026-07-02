@@ -9,13 +9,15 @@ interface CommitInputProps {
   readonly onCommit: (value: string) => void
   readonly className?: string
   readonly ariaLabel?: string
+  readonly placeholder?: string
 }
 
 export function CommitInput({
   value,
   onCommit,
   className,
-  ariaLabel
+  ariaLabel,
+  placeholder
 }: CommitInputProps): React.JSX.Element {
   const [draft, setDraft] = useState(value)
   const [lastValue, setLastValue] = useState(value)
@@ -35,6 +37,7 @@ export function CommitInput({
       type="text"
       className={className}
       aria-label={ariaLabel}
+      placeholder={placeholder}
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
