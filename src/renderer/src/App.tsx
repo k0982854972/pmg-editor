@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { readPmg } from '../../core/pmg/reader'
+import { FxWorkspace } from './fx/FxWorkspace'
 import { Inspector } from './panels/Inspector'
 import { SceneTree } from './panels/SceneTree'
 import { useEditor } from './state/editorContext'
 import { EditorProvider } from './state/editorStore'
+import { FxProvider } from './state/fxStore'
 import { Toolbar } from './Toolbar'
 import { Viewport } from './viewport/Viewport'
 
@@ -64,10 +66,40 @@ function EditorShell(): React.JSX.Element {
   )
 }
 
+type AppMode = 'pmg' | 'fx'
+
+// Both workspaces stay mounted so switching modes never loses state.
 function App(): React.JSX.Element {
+  const [mode, setMode] = useState<AppMode>('pmg')
+
   return (
     <EditorProvider>
-      <EditorShell />
+      <FxProvider>
+        <div className="mode-root">
+          <nav className="mode-tabs">
+            <button
+              type="button"
+              className={mode === 'pmg' ? 'mode-tab active' : 'mode-tab'}
+              onClick={() => setMode('pmg')}
+            >
+              模型
+            </button>
+            <button
+              type="button"
+              className={mode === 'fx' ? 'mode-tab active' : 'mode-tab'}
+              onClick={() => setMode('fx')}
+            >
+              特效
+            </button>
+          </nav>
+          <div className={mode === 'pmg' ? 'mode-pane' : 'mode-pane mode-pane-hidden'}>
+            <EditorShell />
+          </div>
+          <div className={mode === 'fx' ? 'mode-pane' : 'mode-pane mode-pane-hidden'}>
+            <FxWorkspace />
+          </div>
+        </div>
+      </FxProvider>
     </EditorProvider>
   )
 }

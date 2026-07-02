@@ -299,3 +299,265 @@ input:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Mode switch (模型 / 特效) */
+
+.mode-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px 0;
+  background: #0d0f13;
+  border-bottom: 1px solid #2a2e37;
+}
+
+.mode-tab {
+  border-radius: 6px 6px 0 0;
+  border-bottom: none;
+  background: #1c1f26;
+  padding: 6px 18px;
+}
+
+.mode-tab.active {
+  background: #191c22;
+  color: #8ab4ff;
+  border-color: #4a7fd6;
+}
+
+.mode-pane {
+  flex: 1;
+  min-height: 0;
+}
+
+.mode-pane.mode-pane-hidden {
+  display: none;
+}
+
+.mode-pane .app {
+  height: 100%;
+}
+
+/* FX workspace */
+
+.fx-workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.fx-subtabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px 0;
+  background: #14171c;
+  border-bottom: 1px solid #2a2e37;
+}
+
+.fx-subtab {
+  border-radius: 6px 6px 0 0;
+  border-bottom: none;
+  background: #1c1f26;
+  padding: 4px 14px;
+}
+
+.fx-subtab.active {
+  background: #191c22;
+  color: #8ab4ff;
+  border-color: #4a7fd6;
+}
+
+.fx-pane {
+  flex: 1;
+  min-height: 0;
+}
+
+.fx-pane.fx-pane-hidden {
+  display: none;
+}
+
+.fx-effect-pane,
+.fx-meshdesc {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.fx-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #191c22;
+  border-bottom: 1px solid #2a2e37;
+}
+
+.fx-effect-body {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  flex: 1;
+  min-height: 0;
+}
+
+/* FX emitter tree */
+
+.fx-tree {
+  overflow-y: auto;
+  background: #14171c;
+  border-right: 1px solid #2a2e37;
+  padding: 10px;
+}
+
+.fx-tree-children {
+  padding-left: 16px;
+}
+
+.fx-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.fx-tree-toggle {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  color: #8b93a2;
+  width: 20px;
+}
+
+.fx-tree-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 3px 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.fx-tree-label:hover {
+  background: #232733;
+}
+
+.fx-tree-row.selected .fx-tree-label {
+  background: #2a4a7f;
+  color: #dce7ff;
+}
+
+.fx-tree-classname {
+  color: #6b7280;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* FX param editor */
+
+.fx-params {
+  overflow-y: auto;
+  padding: 12px;
+  background: #111318;
+}
+
+.fx-attr-field {
+  max-width: 480px;
+}
+
+.fx-text-block {
+  margin-top: 16px;
+  max-width: 480px;
+}
+
+/* Gradient editor */
+
+.fx-gradient-preview {
+  height: 24px;
+  border: 1px solid #3a3f4a;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  background-clip: padding-box;
+}
+
+.fx-gradient-stop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.fx-stop-time {
+  width: 80px;
+}
+
+.fx-stop-color {
+  width: 44px;
+  height: 28px;
+  padding: 1px;
+}
+
+.fx-stop-alpha {
+  width: 80px;
+}
+
+.fx-gradient-add {
+  margin-top: 6px;
+}
+
+/* Meshdesc attachment panel */
+
+.fx-meshdesc-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.fx-meshdesc-group {
+  margin-bottom: 18px;
+  padding: 10px;
+  background: #14171c;
+  border: 1px solid #2a2e37;
+  border-radius: 6px;
+}
+
+.fx-meshdesc-effect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #22262e;
+}
+
+.fx-meshdesc-field {
+  margin-bottom: 0;
+  min-width: 150px;
+}
+
+.fx-meshdesc-vec {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.fx-meshdesc-vec .field-label {
+  align-self: flex-start;
+  margin-right: 6px;
+}
+
+.fx-meshdesc-vec input {
+  width: 70px;
+}
+
+.fx-meshdesc-add {
+  margin-top: 8px;
+}
