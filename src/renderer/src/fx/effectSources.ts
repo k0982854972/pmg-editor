@@ -36,6 +36,32 @@ export function collectReferencedEffectNames(doc: MeshdescEffectNamesView): read
   return names
 }
 
+export interface SourceUsefulnessView {
+  readonly path: string
+  /** Lowercased emitter names provided by this source. */
+  readonly names: ReadonlySet<string>
+}
+
+/**
+ * Splits loaded sources into those that resolve at least one referenced
+ * effect_name of the (newly opened) meshdesc and those that resolve none —
+ * the latter are eviction candidates when slots run out.
+ */
+export function partitionSourcesByUsefulness<T extends SourceUsefulnessView>(
+  sources: readonly T[],
+  referencedNames: readonly string[]
+): { useful: readonly T[]; unused: readonly T[] } {
+  const referenced = new Set(referencedNames.map((name) => name.trim().toLowerCase()))
+  const useful: T[] = []
+  const unused: T[] = []
+  for (const source of sources) {
+    const resolvesAny = [...referenced].some((name) => source.names.has(name))
+    if (resolvesAny) useful.push(source)
+    else unused.push(source)
+  }
+  return { useful, unused }
+}
+
 export interface AutoLoadPlanInput {
   /** effect_name values referenced by the opened meshdesc. */
   readonly referencedNames: readonly string[]

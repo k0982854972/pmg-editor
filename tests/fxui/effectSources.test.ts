@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import {
   collectReferencedEffectNames,
   MAX_EFFECT_SOURCES,
+  partitionSourcesByUsefulness,
   planEffectSourceAutoLoad
 } from '../../src/renderer/src/fx/effectSources'
 
@@ -31,6 +32,29 @@ describe('collectReferencedEffectNames', () => {
 
   it('drops blank names', () => {
     expect(collectReferencedEffectNames(docWith('', '  ', 'fx1'))).toEqual(['fx1'])
+  })
+})
+
+describe('partitionSourcesByUsefulness', () => {
+  const source = (path: string, ...names: string[]): { path: string; names: Set<string> } => ({
+    path,
+    names: new Set(names)
+  })
+
+  it('keeps sources that resolve at least one referenced name, evicts the rest', () => {
+    const { useful, unused } = partitionSourcesByUsefulness(
+      [source('/a.xml', 'fire01'), source('/b.xml', 'old_glow'), source('/c.xml', 'ice01')],
+      ['Fire01', 'ice01', 'missing01']
+    )
+    expect(useful.map((s) => s.path)).toEqual(['/a.xml', '/c.xml'])
+    expect(unused.map((s) => s.path)).toEqual(['/b.xml'])
+  })
+
+  it('matches names case-insensitively and handles empty inputs', () => {
+    expect(partitionSourcesByUsefulness([], ['x'])).toEqual({ useful: [], unused: [] })
+    const { useful, unused } = partitionSourcesByUsefulness([source('/a.xml', 'FX1')], [])
+    expect(useful).toEqual([])
+    expect(unused.map((s) => s.path)).toEqual(['/a.xml'])
   })
 })
 
