@@ -9,9 +9,10 @@
  *   case-insensitively (PMG files store names lowercase, meshdesc uses
  *   mixed case like "HandtoolR"). Translation is read from the mesh's
  *   row-major matrix2 (indices 3/7/11), i.e. the bind pose.
- * - The row's `offset` is expressed in effect units (~cm, same as the
- *   particle sim) and is scaled by EFFECT_UNITS_TO_WORLD — the same factor
- *   the particle preview uses to map sim positions into the scene.
+ * - The row's `offset` shares the PMG unit scale (effect Size/offset values
+ *   are the same magnitude as PMG extents in the corpus) and is added to
+ *   the anchor unscaled; the meshdesc scene renders particles in the same
+ *   native units.
  * - An unresolved parent anchors at the origin (isResolved = false) so the
  *   effect still previews somewhere visible.
  */
@@ -20,9 +21,6 @@ import { emitterDisplayName } from '../../../core/fx/effectXml'
 import type { Vec3 } from '../../../core/fx/meshdesc'
 import { readMatrix } from '../../../core/pmg/access'
 import type { PmgFile } from '../../../core/pmg/types'
-
-/** Must match WORLD_SCALE in previewScene.ts / meshdescScene.ts. */
-export const EFFECT_UNITS_TO_WORLD = 0.01
 
 /** Tool bones that commonly appear as meshdesc parents (community casing). */
 export const COMMON_TOOL_BONES: readonly string[] = [
@@ -112,7 +110,7 @@ export function resolveParentAnchor(
   return { position: ORIGIN, isResolved: false }
 }
 
-/** Parent anchor plus the row offset scaled from effect units to world units. */
+/** Parent anchor plus the row offset (native units — no scale factor). */
 export function effectAnchorWorld(
   meshes: readonly MeshAnchorSource[],
   effect: { readonly parent: string; readonly offset: Vec3 }
@@ -121,9 +119,9 @@ export function effectAnchorWorld(
   return {
     isResolved: anchor.isResolved,
     position: {
-      x: anchor.position.x + effect.offset.x * EFFECT_UNITS_TO_WORLD,
-      y: anchor.position.y + effect.offset.y * EFFECT_UNITS_TO_WORLD,
-      z: anchor.position.z + effect.offset.z * EFFECT_UNITS_TO_WORLD
+      x: anchor.position.x + effect.offset.x,
+      y: anchor.position.y + effect.offset.y,
+      z: anchor.position.z + effect.offset.z
     }
   }
 }

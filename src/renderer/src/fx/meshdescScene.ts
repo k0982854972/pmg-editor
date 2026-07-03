@@ -18,12 +18,11 @@ import { readIndices, readMatrix, readVertex } from '../../../core/pmg/access'
 import type { PmgFile, PmMesh } from '../../../core/pmg/types'
 import type { Vec3 } from '../../../core/fx/meshdesc'
 import { computeCameraFit } from '../viewport/fitCamera'
+import { atlasUvTransform } from './preview/atlasUv'
 import type { CompiledEmitter, ParticleState } from './preview/particleModel'
 import { MAX_PARTICLES_PER_TYPE, particleColorOf, particleSizeOf } from './preview/particleModel'
-import { atlasUvTransform, createDdsTexture } from './preview/previewScene'
+import { createDdsTexture, textureSizeOf } from './preview/previewScene'
 
-/** Sim positions/sizes are effect units (~cm); must match previewScene.ts. */
-const WORLD_SCALE = 0.01
 const MAX_FRAME_DT_MS = 50
 const COLOR_BYTE_MAX = 255
 const GRID_DIVISIONS = 40
@@ -221,26 +220,24 @@ function fillRenderable(
   for (let i = 0; i < count; i++) {
     const particle = particles[i]
     const color = particleColorOf(particle, effectType)
-    renderable.offsets.setXYZ(
-      i,
-      particle.x * WORLD_SCALE,
-      particle.y * WORLD_SCALE,
-      particle.z * WORLD_SCALE
-    )
+    renderable.offsets.setXYZ(i, particle.x, particle.y, particle.z)
     renderable.colors.setXYZW(i, color.r, color.g, color.b, color.a)
-    renderable.sizeRots.setXY(
-      i,
-      particleSizeOf(particle, effectType) * WORLD_SCALE,
-      particle.rotation
-    )
+    renderable.sizeRots.setXY(i, particleSizeOf(particle, effectType), particle.rotation)
   }
   renderable.offsets.needsUpdate = true
   renderable.colors.needsUpdate = true
   renderable.sizeRots.needsUpdate = true
   renderable.geometry.instanceCount = count
   // Default sprite is a flipY=true CanvasTexture; DDS textures are flipY=false.
+  // Atlas cells only apply to the real texture; the fallback sprite renders
+  // whole so the placeholder stays a recognizable soft dot.
   const flipY = renderable.texture?.flipY ?? true
-  const [x, y, z, w] = atlasUvTransform(effectType.atlas, flipY, state?.timeMs ?? 0)
+  const [x, y, z, w] = atlasUvTransform(
+    renderable.texture ? effectType.atlas : null,
+    flipY,
+    state?.timeMs ?? 0,
+    renderable.texture ? textureSizeOf(renderable.texture) : null
+  )
   ;(renderable.material.uniforms.uvTransform.value as THREE.Vector4).set(x, y, z, w)
 }
 

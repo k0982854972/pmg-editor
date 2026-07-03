@@ -30,6 +30,7 @@ import { sampleColorFrames, sampleTrack } from './particleTracks'
 
 export type {
   AtlasCell,
+  AtlasMode,
   CompiledEffectType,
   CompiledEmitter,
   CompiledShape,

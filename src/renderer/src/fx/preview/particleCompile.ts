@@ -17,8 +17,20 @@ export const DEFAULT_EMISSION_ANGLE_DEG = 45
 
 const DEFAULT_DURATION_MS = 1000
 
+/**
+ * <Texture> tas_classname families observed in the sample corpus:
+ * - 'grid' (tas_grid[N]): column x row grid, x/y are 0-based cell indices.
+ * - 'dynamicgrid' (tas_dynamicgrid[N]): pixel rect (tex_width/tex_height/
+ *   x/y/width/height) divided into column x row animation frames.
+ * - 'crop' (tas_crop[N]): pixel rect without texture dimensions.
+ * - 'whole' (tas_default, tas_uvscroll, ...): the entire texture.
+ */
+export type AtlasMode = 'grid' | 'dynamicgrid' | 'crop' | 'whole'
+
 export interface AtlasCell {
   readonly texture: string
+  readonly mode: AtlasMode
+  /** Cell index (grid) or pixel offset (dynamicgrid/crop). */
   readonly x: number
   readonly y: number
   readonly width: number
@@ -113,6 +125,24 @@ function parseShape(emitterNode: XmlNode): CompiledShape {
   return { kind, radius, position }
 }
 
+export function atlasModeOf(tasClassname: string): AtlasMode {
+  const name = tasClassname.trim().toLowerCase()
+  if (name.startsWith('tas_dynamicgrid')) return 'dynamicgrid'
+  if (name.startsWith('tas_grid')) return 'grid'
+  if (name.startsWith('tas_crop')) return 'crop'
+  return 'whole'
+}
+
+/** Attribute-shape fallback for the rare node without a tas_classname. */
+function inferAtlasMode(attrs: Record<string, string>): AtlasMode {
+  if (attrs.tas_classname !== undefined) return atlasModeOf(attrs.tas_classname)
+  if (attrs.width !== undefined && attrs.height !== undefined) {
+    return attrs.tex_width !== undefined ? 'dynamicgrid' : 'crop'
+  }
+  if (attrs.column !== undefined || attrs.row !== undefined) return 'grid'
+  return 'whole'
+}
+
 function parseAtlas(effectTypeNode: XmlNode): AtlasCell | null {
   const textureNode = childByTag(effectTypeNode, 'Texture')
   if (!textureNode) return null
@@ -121,6 +151,7 @@ function parseAtlas(effectTypeNode: XmlNode): AtlasCell | null {
   if (!texture) return null
   return {
     texture,
+    mode: inferAtlasMode(attrs),
     x: attrNumber(attrs, 'x', 0),
     y: attrNumber(attrs, 'y', 0),
     width: attrNumber(attrs, 'width', 0),

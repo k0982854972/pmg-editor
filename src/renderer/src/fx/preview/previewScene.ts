@@ -12,7 +12,9 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { decodeDds } from '../../../../core/dds/ddsDecode'
-import type { AtlasCell, CompiledEmitter, ParticleState } from './particleModel'
+import type { TextureSize } from './atlasUv'
+import { atlasUvTransform } from './atlasUv'
+import type { CompiledEmitter, ParticleState } from './particleModel'
 import { MAX_PARTICLES_PER_TYPE, particleColorOf, particleSizeOf } from './particleModel'
 
 const WORLD_SCALE = 0.01
@@ -53,7 +55,7 @@ void main() {
  * uncompressed 16/24/32-bit bitmask formats — the formats Mabinogi ships).
  * Throws on unsupported formats or malformed files so callers can surface
  * the reason; flipY stays false to match the atlas UV math in
- * atlasUvTransform().
+ * atlasUvTransform() (atlasUv.ts).
  */
 export function createDdsTexture(bytes: Uint8Array): THREE.DataTexture {
   const { width, height, rgba } = decodeDds(bytes)
@@ -113,34 +115,15 @@ function createDefaultSprite(): THREE.Texture {
 }
 
 /**
- * UV offset/repeat for the atlas cell, advancing column x row animation
- * frames globally by emitter time (per-particle frame phase is not
- * modelled). A negative y-repeat compensates for flipY=false textures.
- * Shared with meshdescScene.ts.
+ * Runtime pixel size of a texture image (canvas or DataTexture); null when
+ * unknown. Feeds tas_crop cells in atlasUvTransform (atlasUv.ts). Shared
+ * with meshdescScene.ts.
  */
-export function atlasUvTransform(
-  atlas: AtlasCell | null,
-  flipY: boolean,
-  timeMs: number
-): [number, number, number, number] {
-  if (!atlas || atlas.texWidth <= 0 || atlas.texHeight <= 0 || atlas.width <= 0) {
-    return flipY ? [0, 0, 1, 1] : [0, 1, 1, -1]
-  }
-  const frames = atlas.column * atlas.row
-  let frame = 0
-  if (frames > 1 && atlas.aniLoopPerSec > 0) {
-    frame = Math.floor((timeMs / 1000) * atlas.aniLoopPerSec * frames) % frames
-  }
-  const frameWidth = atlas.width / atlas.column
-  const frameHeight = atlas.height / atlas.row
-  const pixelX = atlas.x + (frame % atlas.column) * frameWidth
-  const pixelY = atlas.y + Math.floor(frame / atlas.column) * frameHeight
-  const repeatX = frameWidth / atlas.texWidth
-  const repeatY = frameHeight / atlas.texHeight
-  if (flipY) {
-    return [pixelX / atlas.texWidth, 1 - (pixelY + frameHeight) / atlas.texHeight, repeatX, repeatY]
-  }
-  return [pixelX / atlas.texWidth, (pixelY + frameHeight) / atlas.texHeight, repeatX, -repeatY]
+export function textureSizeOf(texture: THREE.Texture): TextureSize | null {
+  const image = texture.image as { width?: unknown; height?: unknown } | null | undefined
+  const width = typeof image?.width === 'number' ? image.width : 0
+  const height = typeof image?.height === 'number' ? image.height : 0
+  return width > 0 && height > 0 ? { width, height } : null
 }
 
 function createRenderable(defaultSprite: THREE.Texture): Renderable {
@@ -280,8 +263,15 @@ export function createPreviewScene(
         renderable.colors.needsUpdate = true
         renderable.sizeRots.needsUpdate = true
         renderable.geometry.instanceCount = count
-        const flipY = (renderable.texture ?? defaultSprite).flipY
-        const [x, y, z, w] = atlasUvTransform(effectType.atlas, flipY, state.timeMs)
+        // Atlas cells only apply to the real texture; the fallback sprite
+        // renders whole so the placeholder stays a recognizable soft dot.
+        const texture = renderable.texture ?? defaultSprite
+        const [x, y, z, w] = atlasUvTransform(
+          renderable.texture ? effectType.atlas : null,
+          texture.flipY,
+          state.timeMs,
+          textureSizeOf(texture)
+        )
         ;(renderable.material.uniforms.uvTransform.value as THREE.Vector4).set(x, y, z, w)
       })
     },

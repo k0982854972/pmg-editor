@@ -5,8 +5,8 @@
  * - resolveParentAnchor: first mesh whose boneName/jointName equals the
  *   meshdesc parent case-insensitively; translation read from a row-major
  *   matrix (indices 3/7/11). Unresolved -> origin.
- * - effectAnchorWorld: anchor + row offset scaled from effect units (~cm)
- *   into world units (x0.01, same factor as the particle preview).
+ * - effectAnchorWorld: anchor + row offset in native units (effect offsets
+ *   share the PMG unit scale; no conversion factor).
  * - resolveEmitterIndex: effect_name -> emitter index in an EffectDocument
  *   via emitterDisplayName, exact match preferred, case-insensitive fallback.
  */
@@ -15,7 +15,6 @@ import { parseEffectXml } from '../../src/core/fx/effectXml'
 import {
   buildBoneCandidates,
   COMMON_TOOL_BONES,
-  EFFECT_UNITS_TO_WORLD,
   effectAnchorWorld,
   mergedEmitterNames,
   resolveEmitterAcross,
@@ -113,21 +112,21 @@ describe('resolveParentAnchor', () => {
 })
 
 describe('effectAnchorWorld', () => {
-  it('adds the row offset scaled from effect units to world units', () => {
+  it('adds the row offset in native units (no scale factor)', () => {
     const anchor = effectAnchorWorld(MESHES, {
       parent: 'HandtoolR',
       offset: { x: -1.1, y: 1.5, z: 10 }
     })
     expect(anchor.isResolved).toBe(true)
-    expect(anchor.position.x).toBeCloseTo(5 + -1.1 * EFFECT_UNITS_TO_WORLD)
-    expect(anchor.position.y).toBeCloseTo(6 + 1.5 * EFFECT_UNITS_TO_WORLD)
-    expect(anchor.position.z).toBeCloseTo(7 + 10 * EFFECT_UNITS_TO_WORLD)
+    expect(anchor.position.x).toBeCloseTo(5 + -1.1)
+    expect(anchor.position.y).toBeCloseTo(6 + 1.5)
+    expect(anchor.position.z).toBeCloseTo(7 + 10)
   })
 
-  it('keeps the scaled offset even when the parent is unresolved', () => {
+  it('keeps the native offset even when the parent is unresolved', () => {
     const anchor = effectAnchorWorld(MESHES, { parent: 'ghost', offset: { x: 100, y: 0, z: 0 } })
     expect(anchor.isResolved).toBe(false)
-    expect(anchor.position).toEqual({ x: 1, y: 0, z: 0 })
+    expect(anchor.position).toEqual({ x: 100, y: 0, z: 0 })
   })
 })
 

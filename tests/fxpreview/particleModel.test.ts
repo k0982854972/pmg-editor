@@ -43,7 +43,7 @@ const FULL_EMITTER = `
     <Spin classname="CSpinController[11]">0 90 </Spin>
     <SizeOverLife classname="CSizeOverLifeController[11]">0 2 1 4 </SizeOverLife>
     <ColorOverLife classname="CColorOverLifeController[11]">0 FF000000 1 FFFFFFFF </ColorOverLife>
-    <Texture tas_classname="tas_grid[10]" texture="effect_a" tex_width="512" tex_height="256"
+    <Texture tas_classname="tas_dynamicgrid[10]" texture="effect_a" tex_width="512" tex_height="256"
       x="0" y="128" width="128" height="128" column="2" row="2" ani_loop_per_sec="1" />
   </EffectType>`
 
@@ -126,6 +126,7 @@ describe('compileEmitter', () => {
     expect(effectType.colorOverLife).toHaveLength(2)
     expect(effectType.atlas).toMatchObject({
       texture: 'effect_a',
+      mode: 'dynamicgrid',
       texWidth: 512,
       texHeight: 256,
       x: 0,
