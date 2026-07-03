@@ -19,8 +19,13 @@ import {
   createSeededRng,
   stepParticles
 } from './preview/particleModel'
-import type { AnchorResolution } from './meshdescPreviewModel'
-import { anchorSourcesOf, effectAnchorWorld, resolveEmitterAcross } from './meshdescPreviewModel'
+import type { AnchorResolution, RotationQuaternion } from './meshdescPreviewModel'
+import {
+  anchorSourcesOf,
+  effectAnchorWorld,
+  effectRotationQuaternion,
+  resolveEmitterAcross
+} from './meshdescPreviewModel'
 import type { MeshdescSceneHandle } from './meshdescScene'
 import { createMeshdescScene } from './meshdescScene'
 
@@ -41,6 +46,7 @@ interface AttachmentPlan {
   readonly effect: MeshdescEffect
   readonly compiled: CompiledEmitter | null
   readonly anchor: AnchorResolution
+  readonly rotation: RotationQuaternion
 }
 
 interface ActiveAttachmentPlan extends AttachmentPlan {
@@ -74,7 +80,8 @@ function buildAttachmentPlans(
         key: `${groupIndex}:${effectIndex}`,
         effect,
         compiled,
-        anchor: effectAnchorWorld(meshes, effect)
+        anchor: effectAnchorWorld(meshes, effect),
+        rotation: effectRotationQuaternion(effect.rotAxis, effect.rotAngle)
       }
     })
   )
@@ -84,7 +91,12 @@ function attachmentStatusText(plan: AttachmentPlan, hasSource: boolean): string 
   if (!hasSource) return '✗ 尚未選擇特效來源檔'
   if (!plan.compiled) return `✗ 特效來源中找不到「${plan.effect.effectName || '（空白）'}」，略過`
   if (!plan.anchor.isResolved) return `✓ ${plan.effect.effectName}（骨骼未解析，錨定於原點）`
-  return `✓ ${plan.effect.effectName} @ ${plan.effect.parent}`
+  if (!plan.anchor.isSlotResolved) {
+    return `⚠ 找不到插槽 +${plan.effect.slot}，使用主網格位置`
+  }
+  return `✓ ${plan.effect.effectName} @ ${plan.effect.parent}${
+    plan.effect.slot > 0 ? `+${plan.effect.slot}` : ''
+  }`
 }
 
 export function MeshdescPreview({
@@ -146,7 +158,11 @@ export function MeshdescPreview({
       rng: createSeededRng(RNG_SEED)
     }))
     sceneRef.current?.syncAttachments(
-      activePlans.map((plan) => ({ compiled: plan.compiled, anchor: plan.anchor.position }))
+      activePlans.map((plan) => ({
+        compiled: plan.compiled,
+        anchor: plan.anchor.position,
+        rotation: plan.rotation
+      }))
     )
   }, [activePlans])
 
@@ -159,13 +175,29 @@ export function MeshdescPreview({
         attachments: number
         activeAttachments: number
         particleCount: number
+        anchors: {
+          name: string
+          slot: number
+          slotResolved: boolean
+          x: number
+          y: number
+          z: number
+        }[]
       }
     }
     devWindow.__meshdescPreviewStats = () => ({
       modelLoaded: pmgFile !== null,
       attachments: plans.length,
       activeAttachments: activePlans.length,
-      particleCount: simsRef.current.reduce((sum, sim) => sum + totalParticles(sim.state), 0)
+      particleCount: simsRef.current.reduce((sum, sim) => sum + totalParticles(sim.state), 0),
+      anchors: plans.map((plan) => ({
+        name: plan.effect.name,
+        slot: plan.effect.slot,
+        slotResolved: plan.anchor.isSlotResolved,
+        x: plan.anchor.position.x,
+        y: plan.anchor.position.y,
+        z: plan.anchor.position.z
+      }))
     })
     return () => {
       delete devWindow.__meshdescPreviewStats

@@ -1,7 +1,8 @@
 /**
  * One meshdesc Effect row: name, parent bone (combobox of PMG bones +
  * common tool bones), effect_name (combobox of emitter names from the
- * selected effect-source file), offset vector and rotation angle.
+ * selected effect-source file), slot (+N socket mesh index, 0 = base mesh),
+ * offset vector, rotation axis and rotation angle.
  * The comboboxes replace native <datalist> suggestions with a bounded,
  * scrollable panel so long option lists never overflow the window.
  */
@@ -180,6 +181,17 @@ export function EffectRow({
           onCommit={(effectName) => onPatch({ effectName })}
         />
       </label>
+      <label
+        className="field fx-meshdesc-field fx-meshdesc-slot"
+        title="對應 PMG 內同骨骼的 +N 插槽網格位置；0 = 主網格"
+      >
+        <span className="field-label">插槽 (slot)</span>
+        <CommitInput
+          value={String(effect.slot)}
+          ariaLabel="插槽 (slot)"
+          onCommit={commitNumber('slot', (value) => onPatch({ slot: Math.trunc(value) }))}
+        />
+      </label>
       <div className="fx-meshdesc-vec">
         <span className="field-label">位移 X / Y / Z</span>
         <CommitInput
@@ -196,6 +208,30 @@ export function EffectRow({
           value={String(effect.offset.z)}
           ariaLabel="位移 Z"
           onCommit={commitNumber('offset.z', (z) => onPatch({ offset: { ...effect.offset, z } }))}
+        />
+      </div>
+      <div className="fx-meshdesc-vec" title="發射器的旋轉軸（axis-angle，配合旋轉角度）">
+        <span className="field-label">旋轉軸 X / Y / Z</span>
+        <CommitInput
+          value={String(effect.rotAxis.x)}
+          ariaLabel="旋轉軸 X"
+          onCommit={commitNumber('rot_axis.x', (x) =>
+            onPatch({ rotAxis: { ...effect.rotAxis, x } })
+          )}
+        />
+        <CommitInput
+          value={String(effect.rotAxis.y)}
+          ariaLabel="旋轉軸 Y"
+          onCommit={commitNumber('rot_axis.y', (y) =>
+            onPatch({ rotAxis: { ...effect.rotAxis, y } })
+          )}
+        />
+        <CommitInput
+          value={String(effect.rotAxis.z)}
+          ariaLabel="旋轉軸 Z"
+          onCommit={commitNumber('rot_axis.z', (z) =>
+            onPatch({ rotAxis: { ...effect.rotAxis, z } })
+          )}
         />
       </div>
       <label className="field fx-meshdesc-field">

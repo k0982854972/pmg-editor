@@ -1116,3 +1116,13 @@ input:focus {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Meshdesc slot field: an integer, no need for the full field width */
+
+.fx-meshdesc-slot {
+  min-width: 0;
+}
+
+.fx-meshdesc-slot input {
+  width: 70px;
+}

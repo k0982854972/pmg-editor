@@ -17,6 +17,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { readIndices, readMatrix, readVertex } from '../../../core/pmg/access'
 import type { PmgFile, PmMesh } from '../../../core/pmg/types'
 import type { Vec3 } from '../../../core/fx/meshdesc'
+import type { RotationQuaternion } from './meshdescPreviewModel'
 import { computeCameraFit } from '../viewport/fitCamera'
 import { atlasUvTransform } from './preview/atlasUv'
 import type { CompiledEmitter, ParticleState } from './preview/particleModel'
@@ -71,7 +72,16 @@ const readStoredDataRoot = (): string => {
 
 export interface MeshdescAttachment {
   readonly compiled: CompiledEmitter
+  /** World anchor = bone/slot position + row offset in the parent frame. */
   readonly anchor: Vec3
+  /**
+   * rot_axis/rot_angle as a quaternion applied to the emitter group AT the
+   * anchor. Assumption (engine order unknown): the offset is applied in the
+   * parent bone frame first (baked into `anchor`), then the emitter frame is
+   * rotated — so rot only reorients emission/velocity directions, it does
+   * not move the anchor. Particles stay camera-facing billboards.
+   */
+  readonly rotation: RotationQuaternion
 }
 
 export interface MeshdescSceneHandle {
@@ -383,6 +393,8 @@ export function createMeshdescScene(
       batches = attachments.map((attachment) => {
         const group = new THREE.Group()
         group.position.set(attachment.anchor.x, attachment.anchor.y, attachment.anchor.z)
+        const { rotation } = attachment
+        group.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w)
         const renderables = attachment.compiled.effectTypes.map(() => createRenderable(sprite))
         renderables.forEach((renderable) => group.add(renderable.mesh))
         scene.add(group)
